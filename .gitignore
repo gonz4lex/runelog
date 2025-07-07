@@ -1,0 +1,37 @@
+# Python Virtual Environments
+.venv/
+venv/
+env/
+__pypackages__/
+
+# Python Cache
+__pycache__/
+*.py[cod]
+*$py.class
+
+# IDE-specific files (VS Code)
+.vscode/*
+!.vscode/settings.json
+!.vscode/tasks.json
+!.vscode/launch.json
+!.vscode/extensions.json
+.history/
+
+# ML Tracker Library Artifacts
+.mlruns/
+.registry/
+
+# Build and distribution artifacts
+build/
+dist/
+*.egg-info/
+*.egg
+
+# OS-specific files
+.DS_Store
+Thumbs.db
+
+# Log and temporary files
+*.log
+*.tmp
+*.swp
