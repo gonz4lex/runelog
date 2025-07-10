@@ -1,19 +1,36 @@
-## Runelog
+# Runelog
 ## Lightweight ML Tracker
 
 A simple, file-based Python library for tracking machine learning experiments, inspired by MLflow.
 
 **Current Status**: 🚧 In active development. The core API is functional but subject to change.
 
------
+The name *Runelog* is a play on words. It evokes the common `run.log()` command used to log an experiment, while also treating your powerful, and sometimes mysterious, models as modern-day mystical writings: a "log of runes".
 
-## Core Features
+## Guiding Philosophy
 
-  * **Experiment Tracking**: Organize your work into experiments and runs.
-  * **Logging**: Save model parameters, metrics, artifacts, and trained models to your local file system.
-  * **Results API**: Load results from an experiment into a pandas DataFrame for easy analysis and comparison.
+This project is guided by a local-first and lightweight philosophy. The goal is to provide a simple, intuitive, and dependency-light tool for individual developers and small teams to track experiments without the overhead of a database, a complex server, or cloud services. Every design choice prioritizes simplicity and ease of use.
 
------
+To maintain the project's lightweight nature, there are several features I will deliberately not implement. If you need these, a more feature-rich tool like the full MLflow is a better choice.
+
+- **No Database**: The library will only ever support the local file system for storing tracking data. This avoids heavy dependencies like SQLAlchemy and the complexity of database migrations.
+- **No Users**: This is a local tool, not a multi-tenant service.
+- **No Complex Web Server**: The optional UI will be a simple Streamlit application, not a persistent, production-grade server like Flask or Django.
+- **No Cloud Integration**: All artifacts are stored locally. The library will not have built-in support for saving to S3, GCS, or Azure Blob Storage.
+
+## Features Roadmap
+
+### Implemented
+- Core Tracking API: Create experiments and runs on the local file system.
+- Comprehensive Logging: Log parameters, metrics, model files, and other artifacts (e.g., plots, data files).
+- Results API: Load experiment results directly into pandas DataFrames for easy analysis and comparison.
+
+### Planned 
+
+- Model Registry: A simple, file-based registry to version and manage models.
+- Streamlit UI: An interactive dashboard to visualize experiments, compare runs, and view the model registry.
+- Testing: A full suite of unit and integration tests.
+
 
 ## Setup & Installation
 
