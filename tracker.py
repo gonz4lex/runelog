@@ -33,7 +33,7 @@ class Tracker:
 
     # Experiments and runs
 
-    def create_experiment(self, name: str) -> str:
+    def get_or_create_experiment(self, name: str) -> str:
         """
         Creates a new experiment and returns its ID. If an experiment with
         the same name already exists, it returns the existing ID.
@@ -63,7 +63,7 @@ class Tracker:
         # Ensure the default experiment '0' exists
         default_experiment_path = os.path.join(self._mlruns_dir, "0")
         if not os.path.exists(default_experiment_path):
-            self.create_experiment("Default Experiment")
+            self.get_or_create_experiment("default")
 
         self._active_experiment_id = experiment_id
         self._active_run_id = uuid.uuid4().hex[:8] # Short unique ID
