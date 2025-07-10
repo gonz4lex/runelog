@@ -180,7 +180,7 @@ class Tracker:
 
     # Model Registry
 
-    def register_model(self, run_id: str, artifact_name: str, model_name: str):
+    def register_model(self, run_id: str, artifact_name: str, model_name: str, tags: dict = None):
         """
         Registers a model from a run's artifacts to the model registry.
 
@@ -225,6 +225,7 @@ class Tracker:
             "version": new_version,
             "source_run_id": run_id,
             "registration_timestamp": __import__("datetime").datetime.now().isoformat(),
+            "tags": tags or {}
         }
         with open(os.path.join(version_path, "meta.json"), "w") as f:
             json.dump(meta, f, indent=4)
@@ -265,3 +266,48 @@ class Tracker:
             )
 
         return joblib.load(final_model_path)
+    
+
+    def add_model_tags(self, model_name: str, version: str, tags: dict):
+        """
+        Adds tags to an existing registered model version.
+
+        Args:
+            model_name (str): The name of the registered model.
+            version (str): The model version to add tags to.
+            tags (dict): A dictionary of tags to add or update.
+        """
+        version_path = os.path.join(self._registry_dir, model_name, version)
+        meta_path = os.path.join(version_path, "meta.json")
+
+        if not os.path.exists(meta_path):
+            raise FileNotFoundError(f"Model '{model_name}' version '{version}' not found.")
+
+        with open(meta_path, "r+") as f:
+            meta = json.load(f)
+            if "tags" not in meta:
+                meta["tags"] = {}
+            meta["tags"].update(tags) # Add or overwrite tags
+            
+            f.seek(0) # Rewind to the beginning of the file
+            json.dump(meta, f, indent=4)
+            f.truncate() # Remove any trailing content if the new file is shorter
+
+
+    def get_model_tags(self, model_name: str, version: str) -> dict:
+        """
+        Retrieves the tags for a specific registered model version.
+
+        Args:
+            model_name (str): The name of the registered model.
+            version (str): The model version to add tags to.
+        """
+        version_path = os.path.join(self._registry_dir, model_name, version)
+        meta_path = os.path.join(version_path, "meta.json")
+
+        if not os.path.exists(meta_path):
+            raise FileNotFoundError(f"Model '{model_name}' version '{version}' not found.")
+
+        with open(meta_path, "r") as f:
+            meta = json.load(f)
+            return meta.get("tags", {})

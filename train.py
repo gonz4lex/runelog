@@ -14,11 +14,7 @@ def main():
     experiment_id = tracker.get_or_create_experiment("Example")
 
     # Define model and hyperparameters
-    params = {
-        "C": 1.0,
-        "solver": "liblinear",
-        "random_state": 0
-    }
+    params = {"C": 1.0, "solver": "liblinear", "random_state": 0}
     model = LogisticRegression(**params)
 
     # Prepare the data
@@ -54,18 +50,31 @@ def main():
     print("\nRun finished.")
 
     if run_id:
-        # Register a model
-        registered_model_name = "winner-model"
-        tracker.register_model(run_id, model_artifact_name, registered_model_name)
+        # Register a model (with tags)
+        registered_model_name = "customer-churn-model"
+        tags = {"status": "candidate", "scope": "global"}
+        version = tracker.register_model(
+            run_id, model_artifact_name, registered_model_name, tags=tags
+        )
 
         # Load a registered model
         loaded_model = tracker.load_registered_model(registered_model_name)
         print("Model loaded successfully:", loaded_model)
 
+        # Add or change tags later
+        tracker.add_model_tags(registered_model_name, version, {"status": "winner"})
+
+        # Retrieve and print tags
+        model_tags = tracker.get_model_tags(registered_model_name, version)
+        print(f"\nTags for '{registered_model_name}' v{version}: {model_tags}")
+
+
+
     # Load and display the results for the entire experiment
     print("\n--- Experiment Results ---\n")
     results_df = tracker.load_results(experiment_id)
     print(results_df)
+
 
 if __name__ == "__main__":
     main()

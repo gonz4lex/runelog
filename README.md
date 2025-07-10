@@ -25,6 +25,7 @@ To maintain the project's lightweight nature, there are several features I will 
 - Comprehensive Logging: Log parameters, metrics, model files, and other artifacts (e.g., plots, data files).
 - Results API: Load experiment results directly into pandas DataFrames for easy analysis and comparison.
 - Model Registry: A simple, file-based registry to version and manage models.
+    - Model Tagging: Organize runs by arbitrary dimensions.
 
 ### Planned 
 
