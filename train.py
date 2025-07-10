@@ -27,7 +27,11 @@ def main():
         X, y, test_size=0.2, random_state=0
     )
 
-    with tracker.start_run(experiment_id=experiment_id) as run_id:
+    run_id = None
+    model_artifact_name = "model.pkl"
+
+    with tracker.start_run(experiment_id=experiment_id) as active_run_id:
+        run_id = active_run_id
         print(f"Started Run: {run_id}")
 
         # Log hyperparameters
@@ -48,6 +52,15 @@ def main():
         tracker.log_model(model, "model.pkl")
 
     print("\nRun finished.")
+
+    if run_id:
+        # Register a model
+        registered_model_name = "winner-model"
+        tracker.register_model(run_id, model_artifact_name, registered_model_name)
+
+        # Load a registered model
+        loaded_model = tracker.load_registered_model(registered_model_name)
+        print("Model loaded successfully:", loaded_model)
 
     # Load and display the results for the entire experiment
     print("\n--- Experiment Results ---\n")
