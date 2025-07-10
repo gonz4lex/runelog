@@ -24,10 +24,10 @@ To maintain the project's lightweight nature, there are several features I will 
 - Core Tracking API: Create experiments and runs on the local file system.
 - Comprehensive Logging: Log parameters, metrics, model files, and other artifacts (e.g., plots, data files).
 - Results API: Load experiment results directly into pandas DataFrames for easy analysis and comparison.
+- Model Registry: A simple, file-based registry to version and manage models.
 
 ### Planned 
 
-- Model Registry: A simple, file-based registry to version and manage models.
 - Streamlit UI: An interactive dashboard to visualize experiments, compare runs, and view the model registry.
 - Testing: A full suite of unit and integration tests.
 
@@ -61,7 +61,7 @@ from sklearn.linear_model import LogisticRegression
 from sklearn.model_selection import train_test_split
 from sklearn.datasets import make_classification
 from sklearn.metrics import accuracy_score
-from ml_tracker import Tracker
+from tracker import Tracker
 
 # 1. Initialize the tracker
 tracker = Tracker()
@@ -72,7 +72,7 @@ experiment_id = tracker.create_experiment("Example")
 # 3. Start a new run
 with tracker.start_run(experiment_id=experiment_id):
     
-    # --- ML Code ---
+    ## ML Code
     X, y = make_classification(n_samples=1000, n_features=20)
     X_train, X_test, y_train, y_test = train_test_split(X, y)
 
@@ -91,6 +91,14 @@ with tracker.start_run(experiment_id=experiment_id):
     
     # Log the trained model
     tracker.log_model(model, "logistic_regression_model.pkl")
+
+    # Register a model
+    registered_model_name = "winner-model"
+    tracker.register_model(run_id, model_artifact_name, registered_model_name)
+
+    # Load a registered model
+    loaded_model = tracker.load_registered_model(registered_model_name)
+    print("Model loaded successfully:", loaded_model)
 
 print("Training script finished.")
 
