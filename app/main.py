@@ -1,6 +1,6 @@
 import streamlit as st
 
-from ui import render_sidebar
+from app.components import render_sidebar
 
 st.set_page_config(page_title="Runelog", page_icon="📜", layout="wide")
 

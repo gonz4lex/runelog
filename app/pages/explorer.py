@@ -1,8 +1,8 @@
 import pandas as pd
 import streamlit as st
 
-from tracker import Tracker
-from ui import render_sidebar
+from runelog import Tracker
+from app.components import render_sidebar
 
 st.set_page_config(
     page_title="🔬 Explorer | Runelog",

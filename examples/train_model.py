@@ -3,7 +3,7 @@ from sklearn.model_selection import train_test_split
 from sklearn.datasets import make_classification
 from sklearn.metrics import accuracy_score
 
-from tracker import Tracker
+from runelog import Tracker
 
 
 def main():
@@ -11,7 +11,7 @@ def main():
     tracker = Tracker()
 
     # Create (or retrieve) an experiment
-    experiment_id = tracker.get_or_create_experiment("Example")
+    experiment_id = tracker.get_or_create_experiment("example-train-model")
 
     # Define model and hyperparameters
     params = {"C": 1.0, "solver": "liblinear", "random_state": 0}
@@ -67,8 +67,6 @@ def main():
         # Retrieve and print tags
         model_tags = tracker.get_model_tags(registered_model_name, version)
         print(f"\nTags for '{registered_model_name}' v{version}: {model_tags}")
-
-
 
     # Load and display the results for the entire experiment
     print("\n--- Experiment Results ---\n")
