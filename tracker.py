@@ -59,6 +59,19 @@ class Tracker:
             json.dump(meta, f, indent=4)
 
         return experiment_id
+    
+    def list_experiments(self):
+        """
+        Lists all experiments, returning their IDs and names.
+        """
+        experiments = []
+        for experiment_id in os.listdir(self._mlruns_dir):
+            meta_path = os.path.join(self._mlruns_dir, experiment_id, "meta.json")
+            if os.path.exists(meta_path):
+                with open(meta_path, 'r') as f:
+                    meta = json.load(f)
+                    experiments.append(meta)
+        return experiments
 
     @contextmanager
     def start_run(self, experiment_id: str = "0"):
@@ -95,8 +108,44 @@ class Tracker:
             self._active_run_id = None
             self._active_experiment_id = None
 
-    # Logging
+    def get_run_details(self, run_id: str):
+        """
+        Loads all details for a specific run, including params, metrics, and artifacts.
+        """
+        run_path = None
+        for exp_id in os.listdir(self._mlruns_dir):
+            path = os.path.join(self._mlruns_dir, exp_id, run_id)
+            if os.path.isdir(path):
+                run_path = path
+                break
+        if not run_path:
+            return None # Run not found
 
+        params = {}
+        params_path = os.path.join(run_path, "params")
+        if os.path.exists(params_path):
+            for param_file in os.listdir(params_path):
+                key = os.path.splitext(param_file)[0]
+                with open(os.path.join(params_path, param_file), 'r') as f:
+                    params[key] = json.load(f)['value']
+
+        metrics = {}
+        metrics_path = os.path.join(run_path, "metrics")
+        if os.path.exists(metrics_path):
+            for metric_file in os.listdir(metrics_path):
+                key = os.path.splitext(metric_file)[0]
+                with open(os.path.join(metrics_path, metric_file), 'r') as f:
+                    metrics[key] = json.load(f)['value']
+        
+        artifacts = []
+        artifacts_path = os.path.join(run_path, "artifacts")
+        if os.path.exists(artifacts_path):
+            artifacts = os.listdir(artifacts_path)
+
+        return {"params": params, "metrics": metrics, "artifacts": artifacts}       
+
+    # Logging
+    
     def log_param(self, key: str, value):
         """Logs a single parameter for the active run."""
         run_path = self._get_run_path()
