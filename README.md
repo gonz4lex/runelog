@@ -18,6 +18,12 @@ To maintain the project's lightweight nature, there are several features I will 
 - **No Complex Web Server**: The optional UI will be a simple Streamlit application, not a persistent, production-grade server like Flask or Django.
 - **No Cloud Integration**: All artifacts are stored locally. The library will not have built-in support for saving to S3, GCS, or Azure Blob Storage.
 
+## Why Runelog?
+
+- Zero-Overhead Setup: start tracking runs within a single line of code
+- Ideal for Local Development and Learning: perfect for practitioners working on solo or small projects in their local machines
+- Full Transparency and Portability: data is stored in simple files and folders that users can see, understand and even version control.
+
 ## Features Roadmap
 
 ### Implemented
@@ -25,10 +31,11 @@ To maintain the project's lightweight nature, there are several features I will 
 - Comprehensive Logging: Log parameters, metrics, model files, and other artifacts (e.g., plots, data files).
 - Results API: Load experiment results directly into pandas DataFrames for easy analysis and comparison.
 - Model Registry: A simple, file-based registry to version and manage models.
+    - Model Tagging: Organize runs by arbitrary dimensions.
+- Streamlit UI: An interactive dashboard to visualize experiments, compare runs, and view the model registry.
 
 ### Planned 
 
-- Streamlit UI: An interactive dashboard to visualize experiments, compare runs, and view the model registry.
 - Testing: A full suite of unit and integration tests.
 
 
@@ -61,7 +68,7 @@ from sklearn.linear_model import LogisticRegression
 from sklearn.model_selection import train_test_split
 from sklearn.datasets import make_classification
 from sklearn.metrics import accuracy_score
-from tracker import Tracker
+from runelog import Tracker
 
 # 1. Initialize the tracker
 tracker = Tracker()
