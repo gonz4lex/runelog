@@ -32,10 +32,10 @@ To maintain the project's lightweight nature, there are several features I will 
 - Results API: Load experiment results directly into pandas DataFrames for easy analysis and comparison.
 - Model Registry: A simple, file-based registry to version and manage models.
     - Model Tagging: Organize runs by arbitrary dimensions.
+- Streamlit UI: An interactive dashboard to visualize experiments, compare runs, and view the model registry.
 
 ### Planned 
 
-- Streamlit UI: An interactive dashboard to visualize experiments, compare runs, and view the model registry.
 - Testing: A full suite of unit and integration tests.
 
 
@@ -68,7 +68,7 @@ from sklearn.linear_model import LogisticRegression
 from sklearn.model_selection import train_test_split
 from sklearn.datasets import make_classification
 from sklearn.metrics import accuracy_score
-from tracker import Tracker
+from runelog import Tracker
 
 # 1. Initialize the tracker
 tracker = Tracker()

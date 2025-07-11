@@ -1,13 +1,8 @@
 # pages/registry.py
 
 import streamlit as st
-from tracker import Tracker
-from ui import display_version_details, render_sidebar
-
-st.set_page_config(page_title="📚 Registry | Runelog", layout="wide")
-
-render_sidebar()
-st.title("📚 Model Registry")
+from runelog import Tracker
+from app.components import display_version_details
 
 tracker = Tracker()
 
@@ -24,7 +19,7 @@ with col1:
     selected_model_name = st.radio(
         "Select a model to view its versions:",
         options=registered_models,
-        label_visibility="collapsed",
+        label_visibility="collapsed"
     )
 
 with col2:
