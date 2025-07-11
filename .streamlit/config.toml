@@ -1,0 +1,16 @@
+[server]
+headless = true # Don't open a browser window on startup.
+runOnSave = true
+
+[theme]
+primaryColor="#16E1B6"
+backgroundColor="#0E1117"
+secondaryBackgroundColor="#262730"
+textColor="#FAFAFA"
+font="sans serif"
+
+[browser]
+gatherUsageStats = false
+
+[client]
+showSidebarNavigation = false

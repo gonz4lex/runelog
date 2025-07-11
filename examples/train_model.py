@@ -3,7 +3,7 @@ from sklearn.model_selection import train_test_split
 from sklearn.datasets import make_classification
 from sklearn.metrics import accuracy_score
 
-from tracker import Tracker
+from runelog import Tracker
 
 
 def main():
@@ -11,14 +11,10 @@ def main():
     tracker = Tracker()
 
     # Create (or retrieve) an experiment
-    experiment_id = tracker.get_or_create_experiment("Example")
+    experiment_id = tracker.get_or_create_experiment("example-train-model")
 
     # Define model and hyperparameters
-    params = {
-        "C": 1.0,
-        "solver": "liblinear",
-        "random_state": 0
-    }
+    params = {"C": 1.0, "solver": "liblinear", "random_state": 0}
     model = LogisticRegression(**params)
 
     # Prepare the data
@@ -54,18 +50,29 @@ def main():
     print("\nRun finished.")
 
     if run_id:
-        # Register a model
-        registered_model_name = "winner-model"
-        tracker.register_model(run_id, model_artifact_name, registered_model_name)
+        # Register a model (with tags)
+        registered_model_name = "customer-churn-model"
+        tags = {"status": "candidate", "scope": "global"}
+        version = tracker.register_model(
+            run_id, model_artifact_name, registered_model_name, tags=tags
+        )
 
         # Load a registered model
         loaded_model = tracker.load_registered_model(registered_model_name)
         print("Model loaded successfully:", loaded_model)
 
+        # Add or change tags later
+        tracker.add_model_tags(registered_model_name, version, {"status": "winner"})
+
+        # Retrieve and print tags
+        model_tags = tracker.get_model_tags(registered_model_name, version)
+        print(f"\nTags for '{registered_model_name}' v{version}: {model_tags}")
+
     # Load and display the results for the entire experiment
     print("\n--- Experiment Results ---\n")
     results_df = tracker.load_results(experiment_id)
     print(results_df)
+
 
 if __name__ == "__main__":
     main()
