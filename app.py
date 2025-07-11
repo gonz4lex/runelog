@@ -1,16 +1,10 @@
 import streamlit as st
 
-pg = st.navigation([
-    st.Page("pages/explorer.py", title="Experiment Explorer", icon="🔬"),
-    st.Page("pages/registry.py", title="Model Registry", icon="📚"),
-])
+from ui import render_sidebar
 
-# Set the initial page configuration
-st.set_page_config(
-    page_title="Runelog",
-    page_icon="📜",
-    layout="wide"
-)
+st.set_page_config(page_title="Runelog", page_icon="📜", layout="wide")
 
-# Run the navigation
-pg.run()
+render_sidebar()
+
+st.title("Welcome to Runelog!")
+st.info("Select a view from the sidebar to get started.")

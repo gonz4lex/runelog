@@ -59,7 +59,7 @@ class Tracker:
             json.dump(meta, f, indent=4)
 
         return experiment_id
-    
+
     def list_experiments(self):
         """
         Lists all experiments, returning their IDs and names.
@@ -68,7 +68,7 @@ class Tracker:
         for experiment_id in os.listdir(self._mlruns_dir):
             meta_path = os.path.join(self._mlruns_dir, experiment_id, "meta.json")
             if os.path.exists(meta_path):
-                with open(meta_path, 'r') as f:
+                with open(meta_path, "r") as f:
                     meta = json.load(f)
                     experiments.append(meta)
         return experiments
@@ -119,33 +119,33 @@ class Tracker:
                 run_path = path
                 break
         if not run_path:
-            return None # Run not found
+            return None  # Run not found
 
         params = {}
         params_path = os.path.join(run_path, "params")
         if os.path.exists(params_path):
             for param_file in os.listdir(params_path):
                 key = os.path.splitext(param_file)[0]
-                with open(os.path.join(params_path, param_file), 'r') as f:
-                    params[key] = json.load(f)['value']
+                with open(os.path.join(params_path, param_file), "r") as f:
+                    params[key] = json.load(f)["value"]
 
         metrics = {}
         metrics_path = os.path.join(run_path, "metrics")
         if os.path.exists(metrics_path):
             for metric_file in os.listdir(metrics_path):
                 key = os.path.splitext(metric_file)[0]
-                with open(os.path.join(metrics_path, metric_file), 'r') as f:
-                    metrics[key] = json.load(f)['value']
-        
+                with open(os.path.join(metrics_path, metric_file), "r") as f:
+                    metrics[key] = json.load(f)["value"]
+
         artifacts = []
         artifacts_path = os.path.join(run_path, "artifacts")
         if os.path.exists(artifacts_path):
             artifacts = os.listdir(artifacts_path)
 
-        return {"params": params, "metrics": metrics, "artifacts": artifacts}       
+        return {"params": params, "metrics": metrics, "artifacts": artifacts}
 
     # Logging
-    
+
     def log_param(self, key: str, value):
         """Logs a single parameter for the active run."""
         run_path = self._get_run_path()
@@ -229,7 +229,9 @@ class Tracker:
 
     # Model Registry
 
-    def register_model(self, run_id: str, artifact_name: str, model_name: str, tags: dict = None):
+    def register_model(
+        self, run_id: str, artifact_name: str, model_name: str, tags: dict = None
+    ):
         """
         Registers a model from a run's artifacts to the model registry.
 
@@ -274,7 +276,7 @@ class Tracker:
             "version": new_version,
             "source_run_id": run_id,
             "registration_timestamp": __import__("datetime").datetime.now().isoformat(),
-            "tags": tags or {}
+            "tags": tags or {},
         }
         with open(os.path.join(version_path, "meta.json"), "w") as f:
             json.dump(meta, f, indent=4)
@@ -315,7 +317,6 @@ class Tracker:
             )
 
         return joblib.load(final_model_path)
-    
 
     def add_model_tags(self, model_name: str, version: str, tags: dict):
         """
@@ -330,18 +331,19 @@ class Tracker:
         meta_path = os.path.join(version_path, "meta.json")
 
         if not os.path.exists(meta_path):
-            raise FileNotFoundError(f"Model '{model_name}' version '{version}' not found.")
+            raise FileNotFoundError(
+                f"Model '{model_name}' version '{version}' not found."
+            )
 
         with open(meta_path, "r+") as f:
             meta = json.load(f)
             if "tags" not in meta:
                 meta["tags"] = {}
-            meta["tags"].update(tags) # Add or overwrite tags
-            
-            f.seek(0) # Rewind to the beginning of the file
-            json.dump(meta, f, indent=4)
-            f.truncate() # Remove any trailing content if the new file is shorter
+            meta["tags"].update(tags)  # Add or overwrite tags
 
+            f.seek(0)  # Rewind to the beginning of the file
+            json.dump(meta, f, indent=4)
+            f.truncate()  # Remove any trailing content if the new file is shorter
 
     def get_model_tags(self, model_name: str, version: str) -> dict:
         """
@@ -355,8 +357,45 @@ class Tracker:
         meta_path = os.path.join(version_path, "meta.json")
 
         if not os.path.exists(meta_path):
-            raise FileNotFoundError(f"Model '{model_name}' version '{version}' not found.")
+            raise FileNotFoundError(
+                f"Model '{model_name}' version '{version}' not found."
+            )
 
         with open(meta_path, "r") as f:
             meta = json.load(f)
             return meta.get("tags", {})
+
+    def list_registered_models(self):
+        """
+        Lists all models currently in the registry.
+        """
+        if not os.path.exists(self._registry_dir):
+            return []
+
+        # Returns a list of model names (directory names)
+        return [
+            d
+            for d in os.listdir(self._registry_dir)
+            if os.path.isdir(os.path.join(self._registry_dir, d))
+        ]
+
+    def get_model_versions(self, model_name: str):
+        """
+        Gets all versions and their metadata for a specific registered model.
+        """
+        model_path = os.path.join(self._registry_dir, model_name)
+        if not os.path.exists(model_path):
+            return []
+
+        versions_data = []
+        versions = [d for d in os.listdir(model_path) if d.isdigit()]
+
+        for version in sorted(versions, key=int, reverse=True):  # Show latest first
+            version_path = os.path.join(model_path, version)
+            meta_path = os.path.join(version_path, "meta.json")
+            if os.path.exists(meta_path):
+                with open(meta_path, "r") as f:
+                    meta = json.load(f)
+                    versions_data.append(meta)
+
+        return versions_data
