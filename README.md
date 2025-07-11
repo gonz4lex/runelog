@@ -18,6 +18,12 @@ To maintain the project's lightweight nature, there are several features I will 
 - **No Complex Web Server**: The optional UI will be a simple Streamlit application, not a persistent, production-grade server like Flask or Django.
 - **No Cloud Integration**: All artifacts are stored locally. The library will not have built-in support for saving to S3, GCS, or Azure Blob Storage.
 
+## Why Runelog?
+
+- Zero-Overhead Setup: start tracking runs within a single line of code
+- Ideal for Local Development and Learning: perfect for practitioners working on solo or small projects in their local machines
+- Full Transparency and Portability: data is stored in simple files and folders that users can see, understand and even version control.
+
 ## Features Roadmap
 
 ### Implemented
