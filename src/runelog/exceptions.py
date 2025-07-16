@@ -45,10 +45,8 @@ class ArtifactNotFound(RunelogException):
     def __init__(self, artifact_path: str, run_id: str = None):
         self.artifact_path = artifact_path
         self.run_id = run_id
-        if run_id:
-            super().__init__(f"Artifact '{artifact_path}' not found in run '{run_id}'.")
-        else:
-            super().__init__(f"Artifact not found at: {artifact_path}")
+        run_context = f" in run '{run_id}'" if run_id else ""
+        super().__init__(f"Artifact '{artifact_path}' not found{run_context}.")
 
 
 class NoActiveRun(RunelogException):
@@ -112,10 +110,8 @@ class StorageError(RunelogException):
         self.operation = operation
         self.path = path
         self.original_error = original_error
-        if original_error:
-            super().__init__(f"Storage error during {operation} at {path}: {original_error}")
-        else:
-            super().__init__(f"Storage error during {operation} at {path}")
+        error_details = f": {original_error}" if original_error else ""
+        super().__init__(f"Storage error during {operation} at {path}{error_details}")
 
 
 class NoVersionsFound(ModelNotFound):
