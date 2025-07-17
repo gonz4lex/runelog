@@ -51,30 +51,46 @@ source .venv/bin/activate  # On Windows: .venv\Scripts\activate
 ```bash
 pip install -r requirements.txt
 ```
-#### Quickstart Example
-Use the `Tracker` class to log your model training process.
+#### Quickstart
+
+Start tracking your ML experiments in just a few lines of code. This example trains a simple model and logs its parameters, accuracy, and the model file itself.
 
 ```python
-from runelog import Tracker
+from runelog import get_tracker
 from sklearn.linear_model import LogisticRegression
 from sklearn.datasets import make_classification
 from sklearn.model_selection import train_test_split
 from sklearn.metrics import accuracy_score
 
-tracker = Tracker()
+# 1. Initialize the tracker
+tracker = get_tracker()
+
+# 2. Get or create an experiment to log to
 experiment_id = tracker.create_experiment("Example")
 
+# 3. Start a run within your experiment
 with tracker.start_run(experiment_id=experiment_id):
+    params = {"solver": "liblinear", "C": 0.5}
+
     X, y = make_classification(n_samples=1000, n_features=20)
     X_train, X_test, y_train, y_test = train_test_split(X, y)
     
-    model = LogisticRegression()
-    model.fit(X_train, y_train)
+    model = LogisticRegression(**params).fit(X_train, y_train)
 
-    acc = accuracy_score(y_test, model.predict(X_test))
-    tracker.log_metric("accuracy", acc)
-    tracker.log_model(model, "logistic_model.pkl")
+    # Log the parameters used for this run
+    tracker.log_parameter("solver", params["solver"])
+    tracker.log_parameter("C", params["C"])
+    
+    # Log the resulting performance metric
+    accuracy = accuracy_score(y, model.predict(X))
+    tracker.log_metric("accuracy", accuracy)
+
+    # Log the trained model file
+    tracker.log_model(model, "logreg.pkl")
 ```
+
+After running this script, you can view the results in the Streamlit UI.
+
 #### Usage Examples
 You can find example scripts in the `examples/ directory`:
 

@@ -5,8 +5,10 @@ import joblib
 import shutil
 from contextlib import contextmanager
 
+from . import exceptions
 
-class Tracker:
+
+class RuneLog:
     """
     A lightweight tracker for ML experiments that handles creating experiments,
     managing runs, and logging parameters, metrics, and artifacts to the
@@ -27,11 +29,12 @@ class Tracker:
         self._active_experiment_id = None
 
         os.makedirs(self._mlruns_dir, exist_ok=True)
+        os.makedirs(self._registry_dir, exist_ok=True)
 
     def _get_run_path(self):
         """Helper to get the path of the current active run."""
         if not self._active_run_id:
-            raise Exception("No active run. Use start_run() context manager.")
+            raise exceptions.NoActiveRun()
         return os.path.join(
             self._mlruns_dir, self._active_experiment_id, self._active_run_id
         )
@@ -165,7 +168,7 @@ class Tracker:
         run_path = self._get_run_path()
         artifact_dir = os.path.join(run_path, "artifacts")
         if not os.path.exists(local_path):
-            raise FileNotFoundError(f"Artifact not found at: {local_path}")
+            raise exceptions.ArtifactNotFound(local_path)
         shutil.copy(local_path, artifact_dir)
 
     def log_model(self, model, name: str):
@@ -212,7 +215,7 @@ class Tracker:
 
         experiment_path = os.path.join(self._mlruns_dir, experiment_id)
         if not os.path.exists(experiment_path):
-            raise FileNotFoundError(f"Experiment with ID '{experiment_id}' not found.")
+            raise exceptions.ExperimentNotFound(experiment_id)
 
         all_runs_data = []
         for run_id in os.listdir(experiment_path):
@@ -249,13 +252,11 @@ class Tracker:
                 break
 
         if not run_path:
-            raise FileNotFoundError(f"Run with ID '{run_id}' not found.")
+            raise exceptions.RunNotFound(run_id)
 
         source_artifact_path = os.path.join(run_path, "artifacts", artifact_name)
         if not os.path.exists(source_artifact_path):
-            raise FileNotFoundError(
-                f"Artifact '{artifact_name}' not found in run '{run_id}'."
-            )
+            raise exceptions.ArtifactNotFound(artifact_path=artifact_name, run_id=run_id)
 
         # Create the destination directory in the registry
         registry_model_path = os.path.join(self._registry_dir, model_name)
@@ -299,12 +300,12 @@ class Tracker:
         """
         model_path = os.path.join(self._registry_dir, model_name)
         if not os.path.exists(model_path):
-            raise FileNotFoundError(f"Model '{model_name}' not found in registry.")
+            raise exceptions.ModelNotFound(model_name)
 
         if version == "latest":
             versions = [d for d in os.listdir(model_path) if d.isdigit()]
             if not versions:
-                raise FileNotFoundError(f"No versions found for model '{model_name}'.")
+                raise exceptions.NoVersionsFound(model_name)
             latest_version = str(max([int(v) for v in versions]))
             version_to_load = latest_version
         else:
@@ -312,9 +313,7 @@ class Tracker:
 
         final_model_path = os.path.join(model_path, version_to_load, "model.joblib")
         if not os.path.exists(final_model_path):
-            raise FileNotFoundError(
-                f"Version '{version_to_load}' not found for model '{model_name}'."
-            )
+            raise exceptions.ModelVersionNotFound(model_name=model_name, version=version_to_load)
 
         return joblib.load(final_model_path)
 
@@ -331,9 +330,7 @@ class Tracker:
         meta_path = os.path.join(version_path, "meta.json")
 
         if not os.path.exists(meta_path):
-            raise FileNotFoundError(
-                f"Model '{model_name}' version '{version}' not found."
-            )
+            raise exceptions.ModelVersionNotFound(model_name=model_name, version=version)
 
         with open(meta_path, "r+") as f:
             meta = json.load(f)
@@ -357,9 +354,7 @@ class Tracker:
         meta_path = os.path.join(version_path, "meta.json")
 
         if not os.path.exists(meta_path):
-            raise FileNotFoundError(
-                f"Model '{model_name}' version '{version}' not found."
-            )
+            raise exceptions.ModelVersionNotFound(model_name=model_name, version=version)
 
         with open(meta_path, "r") as f:
             meta = json.load(f)

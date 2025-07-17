@@ -1,4 +1,4 @@
-from .tracker import Tracker
+from .runelog import RuneLog
 from .exceptions import (
     RunelogException,
     ExperimentNotFound,
@@ -17,3 +17,26 @@ from .exceptions import (
     StorageError,
     NoVersionsFound,
 )
+
+def get_tracker() -> RuneLog:
+    """
+    Initializes and returns the main tracker instance.
+
+    This is the primary entry point for interacting with the Runelog library.
+    The returned object is used to create experiments, start runs, and log
+    all relevant machine learning data.
+
+    Returns:
+        RuneLog: An instance of the main tracker class, ready to be used.
+
+    Example:
+        >>> from runelog import get_tracker
+        >>>
+        >>> tracker = get_tracker()
+        >>> with tracker.start_run(experiment_name="my-test"):
+        ...     tracker.log_parameter("learning_rate", 0.01)
+        ...     tracker.log_metric("accuracy", 0.95)
+
+
+    """
+    return RuneLog()
