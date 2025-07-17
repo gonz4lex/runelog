@@ -1,8 +1,8 @@
-from runelog import Tracker
+from src.runelog import get_tracker
 import time
 
 def main():
-    tracker = Tracker()
+    tracker = get_tracker()
     experiment_id = tracker.get_or_create_experiment("minimal-example")
 
     with tracker.start_run(experiment_id=experiment_id):

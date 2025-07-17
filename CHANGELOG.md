@@ -1,6 +1,6 @@
 # Changelog
 
-All notable changes to **Runelog** will be documented in this file.
+All notable changes to **RuneLog** will be documented in this file.
 
 ---
 
@@ -8,7 +8,7 @@ All notable changes to **Runelog** will be documented in this file.
 
 ### 🎉 Initial Release
 
-- Implemented core `Tracker` class for managing experiments and runs.
+- Implemented core `RuneLog` class for managing experiments and runs.
 - Support for:
   - Logging parameters and metrics
   - Logging and retrieving artifacts
@@ -25,7 +25,7 @@ All notable changes to **Runelog** will be documented in this file.
 - Utilities:
   - `get_run`, `get_model_versions`, `list_registered_models`
 - Structure:
-  - `runelog/tracker.py`: full implementation
+  - `runelog/runelog.py`: full implementation
   - `runelog/__init__.py`: exposed `Tracker`
   - `runelog/cli.py`: placeholder for upcoming CLI tools
 - Examples:
