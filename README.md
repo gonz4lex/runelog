@@ -3,7 +3,7 @@
 
 A simple, file-based Python library for tracking machine learning experiments, inspired by MLflow.
 
-**Current Status**:  In active development. The core API is functional but subject to change.
+**Current Status**: In active development. The core API is functional but subject to change.
 
 The name *Runelog* is a play on words. It evokes the common `run.log()` command used to log an experiment, while also treating your powerful, and sometimes mysterious, models as modern-day mystical writings: a "log of runes".
 
@@ -19,10 +19,25 @@ The name *Runelog* is a play on words. It evokes the common `run.log()` command 
 
 ##  Installation
 
+### User Setup
+
+This is the recommended way to install `runelog` if you just want to use it in your projects.
+
+1. Make sure you have Python 3.8+ installed.
+2. Install the library from PyPI using pip:
+
+```bash
+pip install runelog
+```
+
+That's it! You can now import it into your Python scripts.
+
+### Development Setup
+
 1. **Clone the repository**:
 
 ```bash
-git clone https://github.com/YOUR_USERNAME/runelog.git
+git clone https://github.com/gonz4lex/runelog.git
 cd runelog
 ```
 2. **Create and activate a virtual environment**:
@@ -84,12 +99,12 @@ Run it:
 python examples/minimal_tracking.py
 ```
 ---
-#### Planned Features
-- Core tracking API (experiments, runs, params, metrics)
-- Model artifact saving and registry
-- Tagging and versioning
-- Streamlit UI to view and compare runs
-- Full test coverage
-- Enhanced CLI
+#### Features
+- ✅ **Core Tracking API**: Experiments, runs, parameters, metrics.
+- ✅ **Artifact Logging**: Save model files, plots, and other artifacts.
+- ✅ **Model Registry**: Version and tag models.
+- ✅ **Streamlit UI**: Interactive dashboard to explore runs and the registry.
+- 🔄 **Command-Line Interface (CLI)**: For programmatic interaction.
+- 🔄 **Full Test Coverage**: Comprehensive unit and integration tests.
 ---
 
