@@ -1,10 +1,10 @@
 # pages/registry.py
 
 import streamlit as st
-from runelog import Tracker
+from src.runelog import get_tracker
 from app.components import display_version_details
 
-tracker = Tracker()
+tracker = get_tracker()
 
 registered_models = tracker.list_registered_models()
 

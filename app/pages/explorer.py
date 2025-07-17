@@ -1,7 +1,7 @@
 import pandas as pd
 import streamlit as st
 
-from runelog import Tracker
+from src.runelog import get_tracker
 from app.components import render_sidebar
 
 st.set_page_config(
@@ -13,7 +13,7 @@ render_sidebar()
 st.title("🔬 Experiment Explorer")
 
 
-tracker = Tracker()
+tracker = get_tracker()
 
 def show_run_details(run_id):
     st.subheader(f"Details for Run: `{run_id}`")
