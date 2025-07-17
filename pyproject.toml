@@ -1,0 +1,35 @@
+[project]
+name = "runelog"
+dynamic = ["version"]
+
+authors = [
+    { name = "Alex González", email = "hello@alexgonzalezc.dev" },
+]
+description = "A simple, file-based Python library for tracking machine learning experiments."
+readme = "README.md"
+requires-python = ">=3.8"
+license = { text = "MIT" }
+classifiers = [
+    "Programming Language :: Python :: 3",
+    "License :: OSI Approved :: MIT License",
+    "Operating System :: OS Independent",
+    "Topic :: Scientific/Engineering :: Artificial Intelligence",
+    "Framework :: Streamlit",
+]
+
+dependencies = [
+    "streamlit >= 1.20.0",
+    "pandas >= 1.5.0",
+    "scikit-learn >= 1.1.0",
+]
+
+[project.urls]
+"Homepage" = "https://github.com/gonz4lex/runelog"
+"Bug Tracker" = "https://github.com/gonz4lex/runelog/issues"
+
+[tool.setuptools.dynamic]
+version = { attr = "runelog.__version__" }
+
+
+[tool.setuptools.packages.find]
+where = ["src"]
