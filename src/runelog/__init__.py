@@ -1,3 +1,5 @@
+__version__ = "0.1.0"
+
 from .runelog import RuneLog
 from .exceptions import (
     RunelogException,
@@ -17,6 +19,7 @@ from .exceptions import (
     StorageError,
     NoVersionsFound,
 )
+
 
 def get_tracker() -> RuneLog:
     """
@@ -40,3 +43,6 @@ def get_tracker() -> RuneLog:
 
     """
     return RuneLog()
+
+
+__all__ = ["get_tracker", "RuneLog", "exceptions", "__version__"]

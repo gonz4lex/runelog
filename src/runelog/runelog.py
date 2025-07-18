@@ -5,22 +5,28 @@ import joblib
 import shutil
 from contextlib import contextmanager
 
+import pandas as pd
+
+from typing import Any, Dict, List, Optional, Generator
+
 from . import exceptions
 
 
 class RuneLog:
     """
-    A lightweight tracker for ML experiments that handles creating experiments,
-    managing runs, and logging parameters, metrics, and artifacts to the
-    local filesystem.
+    A lightweight tracker for ML experiments.
+
+    This class handles the creation of experiments, management of runs, and logging
+    of parameters, metrics, and artifacts to the local filesystem. It also
+    provides a model registry for versioning and managing models.
     """
 
     def __init__(self, path="."):
-        """
-        Initializes the tracker.
+        """Initializes the tracker and creates required directories.
 
         Args:
-            path (str): The root directory for storing experiments.
+            path (str, optional): The root directory for storing all tracking
+                data. Defaults to the current directory.
         """
         self.root_path = os.path.abspath(path)
         self._mlruns_dir = os.path.join(self.root_path, ".mlruns")
@@ -32,7 +38,14 @@ class RuneLog:
         os.makedirs(self._registry_dir, exist_ok=True)
 
     def _get_run_path(self):
-        """Helper to get the path of the current active run."""
+        """Helper to get the absolute path of the current active run.
+
+        Returns:
+            str: The absolute path to the active run's directory.
+
+        Raises:
+            exceptions.NoActiveRun: If called outside of an active run context.
+        """
         if not self._active_run_id:
             raise exceptions.NoActiveRun()
         return os.path.join(
@@ -42,9 +55,16 @@ class RuneLog:
     # Experiments and runs
 
     def get_or_create_experiment(self, name: str) -> str:
-        """
-        Creates a new experiment and returns its ID. If an experiment with
-        the same name already exists, it returns the existing ID.
+        """Gets an existing experiment by name or creates a new one.
+
+        If an experiment with the given name already exists, its ID is returned.
+        Otherwise, a new experiment is created.
+
+        Args:
+            name (str): The name of the experiment.
+
+        Returns:
+            str: The unique ID of the new or existing experiment.
         """
         for experiment_id in os.listdir(self._mlruns_dir):
             meta_path = os.path.join(self._mlruns_dir, experiment_id, "meta.json")
@@ -63,9 +83,12 @@ class RuneLog:
 
         return experiment_id
 
-    def list_experiments(self):
-        """
-        Lists all experiments, returning their IDs and names.
+    def list_experiments(self) -> List[Dict]:
+        """Lists all available experiments.
+
+        Returns:
+            List[Dict]: A list of dictionaries, where each dictionary contains
+                the metadata of an experiment (e.g., name and ID).
         """
         experiments = []
         for experiment_id in os.listdir(self._mlruns_dir):
@@ -77,9 +100,18 @@ class RuneLog:
         return experiments
 
     @contextmanager
-    def start_run(self, experiment_id: str = "0"):
-        """
-        Starts a new run within an experiment using a context manager.
+    def start_run(self, experiment_id: str = "0") -> Generator[str, None, None]:
+        """Starts a new run within an experiment as a context manager.
+
+        Upon entering the 'with' block, a new run is created and marked as
+        'RUNNING'. When the block is exited, the run is marked as 'FINISHED'.
+
+        Args:
+            experiment_id (str, optional): The ID of the experiment to create
+                the run in. Defaults to "0" (the default experiment).
+
+        Yields:
+            str: The unique ID of the newly created run.
         """
         # Ensure the default experiment '0' exists
         default_experiment_path = os.path.join(self._mlruns_dir, "0")
@@ -111,9 +143,15 @@ class RuneLog:
             self._active_run_id = None
             self._active_experiment_id = None
 
-    def get_run_details(self, run_id: str):
-        """
-        Loads all details for a specific run, including params, metrics, and artifacts.
+    def get_run_details(self, run_id: str) -> Optional[Dict]:
+        """Loads all details for a specific run.
+
+        Args:
+            run_id (str): The unique ID of the run to retrieve.
+
+        Returns:
+            Optional[Dict]: A dictionary containing the run's 'params',
+                'metrics', and 'artifacts', or None if the run is not found.
         """
         run_path = None
         for exp_id in os.listdir(self._mlruns_dir):
@@ -150,21 +188,46 @@ class RuneLog:
     # Logging
 
     def log_param(self, key: str, value):
-        """Logs a single parameter for the active run."""
+        """Logs a single parameter for the active run.
+
+        Args:
+            key (str): The name of the parameter.
+            value (Any): The value of the parameter. Must be JSON-serializable.
+
+        Raises:
+            exceptions.NoActiveRun: If called outside of an active run context.
+        """
         run_path = self._get_run_path()
         param_path = os.path.join(run_path, "params", f"{key}.json")
         with open(param_path, "w") as f:
             json.dump({"value": value}, f, indent=4)
 
     def log_metric(self, key: str, value: float):
-        """Logs a single metric for the active run."""
+        """Logs a single metric for the active run.
+
+        Args:
+            key (str): The name of the metric.
+            value (float): The value of the metric.
+
+        Raises:
+            exceptions.NoActiveRun: If called outside of an active run context.
+        """
         run_path = self._get_run_path()
         metric_path = os.path.join(run_path, "metrics", f"{key}.json")
         with open(metric_path, "w") as f:
             json.dump({"value": value}, f, indent=4)
 
     def log_artifact(self, local_path: str):
-        """Logs a local file as an artifact of the active run."""
+        """Logs a local file as an artifact of the active run.
+
+        Args:
+            local_path (str): The local path to the file to be logged as an
+                artifact.
+
+        Raises:
+            exceptions.NoActiveRun: If called outside of an active run context.
+            exceptions.ArtifactNotFound: If the file at `local_path` does not exist.
+        """
         run_path = self._get_run_path()
         artifact_dir = os.path.join(run_path, "artifacts")
         if not os.path.exists(local_path):
@@ -172,17 +235,40 @@ class RuneLog:
         shutil.copy(local_path, artifact_dir)
 
     def log_model(self, model, name: str):
-        """Logs a trained model as an artifact of the active run."""
+        """Logs a trained model as an artifact of the active run.
+
+        Args:
+            model (Any): The trained model object to be saved (e.g., a
+                scikit-learn model).
+            name (str): The filename for the saved model (e.g., "model.pkl").
+
+        Raises:
+            exceptions.NoActiveRun: If called outside of an active run context.
+        """
         run_path = self._get_run_path()
         model_path = os.path.join(run_path, "artifacts", name)
         joblib.dump(model, model_path)
 
     # Reading
 
-    def get_run(self, run_id: str):
-        """
-        Loads the parameters and metrics for a specific run.
-        NOTE: Assumes run_id is unique across all experiments for now.
+    def get_run(self, run_id: str) -> Optional[Dict]:
+        """Loads the parameters and metrics for a specific run.
+
+        This method provides a summarized view of a run's data, primarily for
+        use in creating tabular summaries like in `load_results`. It assumes
+        that `run_id` is unique across all experiments.
+
+        Note:
+            For a more detailed dictionary that includes artifacts, see the
+            `get_run_details()` method.
+
+        Args:
+            run_id (str): The unique ID of the run to retrieve.
+
+        Returns:
+            Optional[Dict]: A dictionary containing the `run_id` and all
+                associated parameters and metrics, or None if the run is not
+                found. Parameter keys are prefixed with 'param_'.
         """
         for experiment_id in os.listdir(self._mlruns_dir):
             run_path = os.path.join(self._mlruns_dir, experiment_id, run_id)
@@ -206,10 +292,20 @@ class RuneLog:
                 return {"run_id": run_id, **params, **metrics}
         return None
 
-    def load_results(self, experiment_id: str):
-        """
-        Loads all run metrics and parameters from a given experiment into a
-        pandas DataFrame for comparison.
+    def load_results(self, experiment_id: str) -> pd-DataFrame:
+        """Loads all run data from an experiment into a pandas DataFrame.
+
+        Args:
+            experiment_id (str): The ID of the experiment to load.
+
+        Returns:
+            pd.DataFrame: A DataFrame containing the parameters and metrics
+                for each run in the experiment, indexed by `run_id`. Returns
+                an empty DataFrame if the experiment has no runs.
+
+        Raises:
+            exceptions.ExperimentNotFound: If no experiment with the given ID
+                is found.
         """
         import pandas as pd
 
@@ -234,14 +330,24 @@ class RuneLog:
 
     def register_model(
         self, run_id: str, artifact_name: str, model_name: str, tags: dict = None
-    ):
-        """
-        Registers a model from a run's artifacts to the model registry.
+    ) -> str:
+        """Registers a model from a run's artifacts to the model registry.
 
         Args:
             run_id (str): The ID of the run where the model artifact is stored.
             artifact_name (str): The filename of the model artifact (e.g., "model.pkl").
-            model_name (str): The name to register the model under.
+            model_name (str): The name to register the model under. This can be
+                a new or existing model name.
+            tags (Optional[Dict], optional): A dictionary of tags to add to the
+                new model version. Defaults to None.
+
+        Returns:
+            str: The new version number of the registered model as a string.
+
+        Raises:
+            exceptions.RunNotFound: If no run with the given ID is found.
+            exceptions.ArtifactNotFound: If the specified artifact is not found
+                in the run.
         """
         # Find the model artifact
         run_path = None
@@ -256,7 +362,9 @@ class RuneLog:
 
         source_artifact_path = os.path.join(run_path, "artifacts", artifact_name)
         if not os.path.exists(source_artifact_path):
-            raise exceptions.ArtifactNotFound(artifact_path=artifact_name, run_id=run_id)
+            raise exceptions.ArtifactNotFound(
+                artifact_path=artifact_name, run_id=run_id
+            )
 
         # Create the destination directory in the registry
         registry_model_path = os.path.join(self._registry_dir, model_name)
@@ -287,16 +395,22 @@ class RuneLog:
         )
         return new_version
 
-    def load_registered_model(self, model_name: str, version: str = "latest"):
-        """
-        Loads a model from the model registry.
+    def load_registered_model(self, model_name: str, version: str = "latest") -> Any:
+        """Loads a model from the model registry.
 
         Args:
             model_name (str): The name of the registered model.
-            version (str): The version to load ('latest' or a specific version number).
+            version (str, optional): The version to load. Can be a specific
+                version number or "latest". Defaults to "latest".
 
         Returns:
-            The loaded model object.
+            Any: The loaded model object.
+
+        Raises:
+            exceptions.ModelNotFound: If no model with the given name is found.
+            exceptions.NoVersionsFound: If the model exists but has no versions.
+            exceptions.ModelVersionNotFound: If the specified version is not
+                found for the model.
         """
         model_path = os.path.join(self._registry_dir, model_name)
         if not os.path.exists(model_path):
@@ -313,24 +427,32 @@ class RuneLog:
 
         final_model_path = os.path.join(model_path, version_to_load, "model.joblib")
         if not os.path.exists(final_model_path):
-            raise exceptions.ModelVersionNotFound(model_name=model_name, version=version_to_load)
+            raise exceptions.ModelVersionNotFound(
+                model_name=model_name, version=version_to_load
+            )
 
         return joblib.load(final_model_path)
 
-    def add_model_tags(self, model_name: str, version: str, tags: dict):
-        """
-        Adds tags to an existing registered model version.
+    def add_model_tags(self, model_name: str, version: str, tags: dict) -> Dict:
+        """Retrieves the tags for a specific registered model version.
 
         Args:
             model_name (str): The name of the registered model.
-            version (str): The model version to add tags to.
-            tags (dict): A dictionary of tags to add or update.
+            version (str): The version from which to retrieve tags.
+
+        Returns:
+            Dict: A dictionary of the model version's tags.
+
+        Raises:
+            exceptions.ModelVersionNotFound: If the model or version is not found.
         """
         version_path = os.path.join(self._registry_dir, model_name, version)
         meta_path = os.path.join(version_path, "meta.json")
 
         if not os.path.exists(meta_path):
-            raise exceptions.ModelVersionNotFound(model_name=model_name, version=version)
+            raise exceptions.ModelVersionNotFound(
+                model_name=model_name, version=version
+            )
 
         with open(meta_path, "r+") as f:
             meta = json.load(f)
@@ -343,26 +465,35 @@ class RuneLog:
             f.truncate()  # Remove any trailing content if the new file is shorter
 
     def get_model_tags(self, model_name: str, version: str) -> dict:
-        """
-        Retrieves the tags for a specific registered model version.
+        """Retrieves the tags for a specific registered model version.
 
         Args:
             model_name (str): The name of the registered model.
-            version (str): The model version to add tags to.
+            version (str): The version from which to retrieve tags.
+
+        Returns:
+            Dict: A dictionary of the model version's tags.
+
+        Raises:
+            exceptions.ModelVersionNotFound: If the model or version is not found.
         """
         version_path = os.path.join(self._registry_dir, model_name, version)
         meta_path = os.path.join(version_path, "meta.json")
 
         if not os.path.exists(meta_path):
-            raise exceptions.ModelVersionNotFound(model_name=model_name, version=version)
+            raise exceptions.ModelVersionNotFound(
+                model_name=model_name, version=version
+            )
 
         with open(meta_path, "r") as f:
             meta = json.load(f)
             return meta.get("tags", {})
 
-    def list_registered_models(self):
-        """
-        Lists all models currently in the registry.
+    def list_registered_models(self) -> List[str]:
+        """Lists the names of all models in the registry.
+
+        Returns:
+            List[str]: A list of names of all registered models.
         """
         if not os.path.exists(self._registry_dir):
             return []
@@ -374,9 +505,18 @@ class RuneLog:
             if os.path.isdir(os.path.join(self._registry_dir, d))
         ]
 
-    def get_model_versions(self, model_name: str):
-        """
-        Gets all versions and their metadata for a specific registered model.
+    def get_model_versions(self, model_name: str) -> List[Dict]:
+        """Gets all versions and their metadata for a registered model.
+
+        The versions are returned sorted from newest to oldest.
+
+        Args:
+            model_name (str): The name of the model to retrieve versions for.
+
+        Returns:
+            List[Dict]: A list of metadata dictionaries, where each dictionary
+                represents a single version of the model. Returns an empty
+                list if the model is not found.
         """
         model_path = os.path.join(self._registry_dir, model_name)
         if not os.path.exists(model_path):

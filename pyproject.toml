@@ -30,7 +30,8 @@ dependencies = [
 docs = [
     "mkdocs",
     "mkdocs-material",
-    "mkdocstrings[python]"
+    "mkdocstrings[python]",
+    "pymdownx-extensions"
 ]
 test = [
     "pytest",
@@ -44,6 +45,7 @@ dev = [
     "mkdocs",
     "mkdocs-material",
     "mkdocstrings[python]",
+    "pymdownx-extensions",
     "pytest",
     "pytest-cov",
     "coverage",
