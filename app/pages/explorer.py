@@ -9,7 +9,7 @@ run to inspect its detailed parameters, metrics, and artifacts.
 import pandas as pd
 import streamlit as st
 
-from src.runelog import get_tracker
+from runelog import get_tracker
 from app.components import render_sidebar
 
 st.set_page_config(

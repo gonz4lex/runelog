@@ -7,8 +7,16 @@ parameters.
 """
 
 import streamlit as st
-from src.runelog import get_tracker
-from app.components import display_version_details
+
+from runelog import get_tracker
+from app.components import display_version_details, render_sidebar
+
+st.set_page_config(
+    page_title="📚 Registry | Runelog",
+    layout="wide"
+)
+
+render_sidebar()
 
 tracker = get_tracker()
 
