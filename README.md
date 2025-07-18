@@ -1,4 +1,4 @@
-# Runelog
+# RuneLog
 ## Lightweight ML Tracker
 
 A simple, file-based Python library for tracking machine learning experiments, inspired by MLflow.

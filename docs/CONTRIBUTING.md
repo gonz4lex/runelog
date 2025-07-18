@@ -45,7 +45,7 @@ pip install pytest
 ```bash
 git checkout develop
 git pull origin develop
-git checkout -b feat/my-new-feature # or fix/my-bug-fix
+git checkout -b feat/my-new-feature
 ```
 
 2. Make your changes: Write your code, following the existing code style.
@@ -70,15 +70,15 @@ pytest
 
 Before you submit your pull request, please make sure you have done the following:
 
-[ ] My code follows the project's style guidelines.
+- [ ] My code follows the project's style guidelines.
 
-[ ] I have added tests that prove my fix is effective or that my feature works.
+- [ ] I have added tests that prove my fix is effective or that my feature works.
 
-[ ] I have updated the documentation where necessary.
+- [ ] I have updated the documentation where necessary.
 
-[ ] My pull request is targeted at the develop branch.
+- [ ] My pull request is targeted at the develop branch.
 
 ## Code of Conduct
-Please note that this project is released with a Contributor Code of Conduct. By participating in this project you agree to abide by its terms. Please read the CODE_OF_CONDUCT.md file.
+Please note that this project is released with a [Contributor Code of Conduct](./CODE_OF_CONDUCT.md). By participating in this project you agree to abide by its terms.
 
 Thank you for contributing!
