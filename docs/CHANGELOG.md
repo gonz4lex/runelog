@@ -26,11 +26,13 @@ All notable changes to **RuneLog** will be documented in this file.
   - `get_run`, `get_model_versions`, `list_registered_models`
 - Structure:
   - `runelog/runelog.py`: full implementation
-  - `runelog/__init__.py`: exposed `Tracker`
+  - `runelog/__init__.py`: exposed `RuneLog` with factory
   - `runelog/cli.py`: placeholder for upcoming CLI tools
 - Examples:
   - `examples/train_model.py` (full pipeline)
   - `examples/minimal_tracking.py` (quick demo)
+- Streamlit UI dashboard for browsing runs and metrics
+- Full test suite with `pytest`
 
 ---
 
@@ -39,6 +41,4 @@ All notable changes to **RuneLog** will be documented in this file.
 ### 🔜 Planned
 
 - CLI support via `cli.py`
-- Streamlit UI dashboard for browsing runs and metrics
-- Full test suite with `pytest`
 - Integration with Git metadata (hash, commit time, branch)

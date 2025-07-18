@@ -1,3 +1,11 @@
+"""Streamlit page for the Experiment Explorer.
+
+This module renders the primary user interface for Browse and analyzing
+experiment runs. It allows users to select an experiment from a dropdown,
+view all associated runs in a summary table, and then select a specific
+run to inspect its detailed parameters, metrics, and artifacts.
+"""
+
 import pandas as pd
 import streamlit as st
 

@@ -3,7 +3,7 @@ import time
 
 def main():
     tracker = get_tracker()
-    experiment_id = tracker.get_or_create_experiment("minimal-example")
+    experiment_id = tracker.get_or_create_experiment("example-minimal-tracking")
 
     with tracker.start_run(experiment_id=experiment_id):
         tracker.log_param("experiment_type", "minimal")
