@@ -536,3 +536,38 @@ class RuneLog:
                     versions_data.append(meta)
 
         return versions_data
+    
+    def get_artifact_abspath(self, run_id: str, artifact_name: str) -> str:
+        """
+        Gets the absolute path of a specific artifact from a given run.
+
+        Args:
+            run_id (str): The ID of the run containing the artifact.
+            artifact_name (str): The filename of the artifact.
+
+        Returns:
+            str: The absolute, local path to the artifact file.
+
+        Raises:
+            exceptions.RunNotFound: If the run ID does not exist.
+            exceptions.ArtifactNotFound: If the artifact name does not exist in the run.
+        """
+        run_details = self.get_run_details(run_id)
+        if not run_details:
+            raise exceptions.RunNotFound(run_id)
+
+        # Reconstruct the full path
+        exp_id = None
+        for eid in os.listdir(self._mlruns_dir):
+            if os.path.isdir(os.path.join(self._mlruns_dir, eid, run_id)):
+                exp_id = eid
+                break
+        
+        artifact_path = os.path.join(
+            self._mlruns_dir, exp_id, run_id, "artifacts", artifact_name
+        )
+
+        if artifact_name not in run_details["artifacts"] or not os.path.exists(artifact_path):
+            raise exceptions.ArtifactNotFound(artifact_name, run_id)
+        
+        return artifact_path
