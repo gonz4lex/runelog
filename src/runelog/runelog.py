@@ -234,13 +234,15 @@ class RuneLog:
             raise exceptions.ArtifactNotFound(local_path)
         shutil.copy(local_path, artifact_dir)
 
-    def log_model(self, model, name: str):
+    def log_model(self, model: Any, name: str, compress: int = 3):
         """Logs a trained model as an artifact of the active run.
 
         Args:
             model (Any): The trained model object to be saved (e.g., a
                 scikit-learn model).
             name (str): The filename for the saved model (e.g., "model.pkl").
+            compress (int, optional): The level of compression for joblib from 0 to 9.
+                Defaults to 3.
 
         Raises:
             exceptions.NoActiveRun: If called outside of an active run context.
@@ -292,7 +294,7 @@ class RuneLog:
                 return {"run_id": run_id, **params, **metrics}
         return None
 
-    def load_results(self, experiment_id: str) -> pd-DataFrame:
+    def load_results(self, experiment_id: str) -> pd.DataFrame:
         """Loads all run data from an experiment into a pandas DataFrame.
 
         Args:
