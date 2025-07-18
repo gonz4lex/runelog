@@ -1,4 +1,10 @@
-# pages/registry.py
+"""
+Streamlit page for viewing and exploring the Model Registry.
+
+This page provides a two-column layout to select a registered model and view
+all of its version details, including tags, source run info, metrics, and
+parameters.
+"""
 
 import streamlit as st
 from src.runelog import get_tracker
