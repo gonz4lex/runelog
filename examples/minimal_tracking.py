@@ -1,4 +1,4 @@
-from src.runelog import get_tracker
+from runelog import get_tracker
 import time
 
 def main():

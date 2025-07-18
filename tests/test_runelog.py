@@ -4,8 +4,8 @@ import json
 
 import pandas as pd
 
-from src.runelog.runelog import RuneLog
-from src.runelog import exceptions
+from runelog.runelog import RuneLog
+from runelog import exceptions
 
 class MockModel:
     def __init__(self, val=1):
