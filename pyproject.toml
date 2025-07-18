@@ -21,7 +21,37 @@ dependencies = [
     "streamlit >= 1.20.0",
     "pandas >= 1.5.0",
     "scikit-learn >= 1.1.0",
+    "joblib >= 1.5.1",
+    "typer[all]",
+    "rich >= 14.0.0"
 ]
+
+[project.optional-dependencies]
+docs = [
+    "mkdocs",
+    "mkdocs-material",
+    "mkdocstrings[python]"
+]
+test = [
+    "pytest",
+    "pytest-cov",
+    "coverage"
+]
+format = [
+    "black"
+]
+dev = [
+    "mkdocs",
+    "mkdocs-material",
+    "mkdocstrings[python]",
+    "pytest",
+    "pytest-cov",
+    "coverage",
+    "black"
+]
+
+[project.scripts]
+runelog = "runelog.cli:main"
 
 [project.urls]
 "Homepage" = "https://github.com/gonz4lex/runelog"

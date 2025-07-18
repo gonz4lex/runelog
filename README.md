@@ -95,6 +95,7 @@ After running this script, you can view the results in the Streamlit UI.
 You can find example scripts in the `examples/ directory`:
 
 `train_model.py`
+
 Full pipeline example with:
 * logging parameters and metrics
 * saving and registering models
@@ -107,6 +108,7 @@ python examples/train_model.py
 ```
 
 `minimal_tracking.py`
+
 Minimal working example with only metric logging.
 
 Run it:
@@ -122,5 +124,5 @@ python examples/minimal_tracking.py
 - ✅ **Streamlit UI**: Interactive dashboard to explore runs and the registry.
 - 🔄 **Command-Line Interface (CLI)**: For programmatic interaction.
 - 🔄 **Full Test Coverage**: Comprehensive unit and integration tests.
----
+
 

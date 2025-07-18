@@ -1,0 +1,38 @@
+site_name: RuneLog
+site_description: Lightweight ML experiment tracker
+site_author: Alex Gonzalez
+repo_url: https://github.com/gonz4lex/runelog
+
+theme:
+  name: material
+  features:
+    - navigation.tabs
+    - navigation.top
+    - search.suggest
+    - content.code.copy
+
+nav:
+  - Home: index.md
+  - Quickstart: quickstart.md
+  - API Reference: reference.md
+  - CLI Usage: cli.md
+  - Contributing: contributing.md
+  - Changelog: changelog.md
+
+markdown_extensions:
+  - admonition
+  - codehilite
+  - pymdownx.superfences
+  - toc:
+      permalink: true
+
+plugins:
+  - search
+  - mkdocstrings:
+      default_handler: python
+      handlers:
+        python:
+          options:
+            show_source: false
+            docstring_style: google
+            merge_init_into_class: true
