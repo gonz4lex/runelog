@@ -3,8 +3,8 @@ from rich.console import Console
 from rich.table import Table
 from rich.panel import Panel
 
-from runelog import get_tracker
 from . import exceptions
+from runelog.runner import run_sweep
 
 import os
 import sys
@@ -588,7 +588,7 @@ def _run_example(script_name: str):
         )
         raise typer.Exit(1)
 
-    command = [sys.executable, script_path]
+    command = [sys.executable, "-u", script_path]
 
     try:
         subprocess.run(command, check=True)
@@ -608,3 +608,35 @@ def run_train_example():
     """Run the train_model.py example script."""
     _run_example("train_model.py")
 
+
+@examples_app.command("sweep")
+def run_train_example():
+    """Run the train_model.py example script."""
+    _run_example("sweep/sweep.py")
+
+
+# Sweep
+
+@app.command()
+def sweep(
+    config_path: str = typer.Option(
+        ..., 
+        "--config", 
+        "-c", 
+        help="Path to the sweep config YAML file.",
+        exists=True,
+    )
+):
+    """Run a series of experiments from a configuration file."""
+    # The console is now created and used only within the CLI
+    console = Console() 
+    try:
+        console.print(f"🚀 Loading configuration from: [bold green]{config_path}[/bold green]")
+        
+        # Pass the console's print method as the handler
+        run_sweep(config_path, progress_handler=console.print)
+        
+        console.print("\nSweep finished successfully! ✨", style="bold green")
+    except Exception as e:
+        console.print(f"\n❌ An error occurred during the sweep: {e}", style="bold red")
+        raise typer.Exit(code=1)
