@@ -28,14 +28,6 @@ app.add_typer(examples_app, name="examples", help="Run example scripts.")
 # Console object for rich printing
 console = Console()
 
-@app.callback()
-def main(ctx: typer.Context):
-    """Initialize the tracker and attach it to the context for all commands."""
-    # This runs before any command. If the context object is None (normal run),
-    # it creates the real tracker. If it's set (by a test), it does nothing
-    if ctx.obj is None:
-        ctx.obj = get_tracker()
-
 ## Experiments
 
 @experiments_app.command("list")
@@ -615,3 +607,4 @@ def run_minimal_example():
 def run_train_example():
     """Run the train_model.py example script."""
     _run_example("train_model.py")
+
