@@ -7,7 +7,9 @@ from runelog import get_tracker
 from . import exceptions
 
 import os
+import sys
 import shutil
+import subprocess
 from datetime import datetime
 from typing import Optional, List
 
@@ -16,22 +18,32 @@ app = typer.Typer(help="RuneLog CLI: Lightweight ML experiment tracker.")
 experiments_app = typer.Typer()
 runs_app = typer.Typer()
 registry_app = typer.Typer()
+examples_app = typer.Typer()
 
 app.add_typer(experiments_app, name="experiments", help="Manage experiments.")
 app.add_typer(runs_app, name="runs", help="Manage runs.")
 app.add_typer(registry_app, name="registry", help="Manage the model registry.")
+app.add_typer(examples_app, name="examples", help="Run example scripts.")
 
 # Console object for rich printing
 console = Console()
-tracker = get_tracker()
+
+@app.callback()
+def main(ctx: typer.Context):
+    """Initialize the tracker and attach it to the context for all commands."""
+    # This runs before any command. If the context object is None (normal run),
+    # it creates the real tracker. If it's set (by a test), it does nothing
+    if ctx.obj is None:
+        ctx.obj = get_tracker()
 
 ## Experiments
 
-
 @experiments_app.command("list")
-def list_experiments():
+def list_experiments(ctx: typer.Context):
     """List all available experiments."""
+    tracker = ctx.obj
     experiments = tracker.list_experiments()
+    
     if not experiments:
         console.print("No experiments found.", style="yellow")
         return
@@ -45,24 +57,66 @@ def list_experiments():
 
 @experiments_app.command("get")
 def get_experiment_details(
-    experiment_id: str = typer.Argument(
+    ctx: typer.Context,
+    experiment_name_or_id: str = typer.Argument(
         ..., help="The ID of the experiment to retrieve."
     )
 ):
     """Get details for a specific experiment."""
-    console.print(
-        f"Fetching details for experiment [bold cyan]{experiment_id}[/bold cyan]..."
-    )
-    console.print(
-        "[yellow]Info:[/yellow] This feature requires enhancing `tracker.py` to fetch a single experiment's details."
-    )
+    tracker = ctx.obj
+
+    try:
+        experiment_id = tracker._resolve_experiment_id(experiment_name_or_id)
+        experiment = tracker.get_experiment(experiment_id)
+        experiment_name = experiment.get("name", "n/a")
+
+        results_df = tracker.load_results(experiment_id)
+
+        summary_panel = Panel(
+            f"[bold]Name[/bold]: {experiment_name}\n"
+            f"[bold]ID[/bold]: {experiment_id}\n"
+            f"[bold]Number of Runs[/bold]: {len(results_df)}",
+            title="Experiment Details",
+            border_style="green",
+        )
+        console.print(summary_panel)
+
+        if not results_df.empty:
+            metric_columns = [
+                col for col in results_df.columns if not col.startswith("param_")
+            ]
+            table = Table(
+                "Run ID", *metric_columns, title=f"Runs for Experiment {experiment_id}"
+            )
+
+            for run_id, row_data in results_df.iterrows():
+                row_values = [run_id]
+                for metric in metric_columns:
+                    value = row_data.get(metric)
+                    if isinstance(value, float):
+                        row_values.append(f"{value:.4f}")
+                    else:
+                        row_values.append(str(value) if value is not None else "N/A")
+
+                table.add_row(*row_values)
+
+            console.print(table)
+        else:
+            console.print("This experiment has no runs.", style="yellow")
+
+    except exceptions.ExperimentNotFound as e:
+        console.print(f"Error: {e}", style="bold red")
+        raise typer.Exit(1)
 
 
 @experiments_app.command("delete")
 def delete_experiment(
+    ctx: typer.Context,
     experiment_id: str = typer.Argument(..., help="The ID of the experiment to delete.")
 ):
     """Delete an experiment and all of its associated runs."""
+    tracker = ctx.obj
+
     console.print(
         f"You are about to delete experiment '{experiment_id}'.",
         style="bold yellow",
@@ -81,31 +135,105 @@ def delete_experiment(
         console.print("Operation cancelled.")
 
 
+@experiments_app.command("export")
+def export_experiment(
+    ctx: typer.Context,
+    experiment_name_or_id: str = typer.Argument(
+        ..., help="The ID of the experiment to export."
+    ),
+    output_path: Optional[str] = typer.Option(
+        None,
+        "-o",
+        "--output",
+        help="Path to save the CSV file. Defaults to '<experiment_name>_export.csv'.",
+    ),
+):
+    """Export all runs from an experiment to a CSV file."""
+    tracker = ctx.obj
+
+    try:
+        results_df = tracker.load_results(experiment_name_or_id)
+
+        if results_df.empty:
+            console.print(
+                f"Experiment '{experiment_name_or_id}' has no runs to export.",
+                style="yellow",
+            )
+            return
+
+        if not output_path:
+            experiment = tracker.get_experiment(experiment_name_or_id)
+            exp_name = experiment.get(
+                "name", f"experiment_{experiment_name_or_id}"
+            ).replace(" ", "_")
+            output_path = f"{exp_name}_export.csv"
+
+        results_df.to_csv(output_path)
+
+        console.print(
+            f"Successfully exported {len(results_df)} runs to '[bold green]{output_path}[/bold green]'."
+        )
+
+    except exceptions.ExperimentNotFound as e:
+        console.print(f"Error: {e}", style="bold red")
+        raise typer.Exit(1)
+
+
 ## Runs
-
-# TODO:
-# rich table comparisons: runelog runs compare <run_id_1> <run_id_2>
-# export data for other tools: runelog runs export <experiment_id> --output results.csv
-
 
 @runs_app.command("list")
 def list_runs(
-    experiment_id: str = typer.Argument(
+    ctx: typer.Context,
+    experiment_name_or_id: str = typer.Argument(
         ..., help="The ID of the experiment whose runs you want to list."
     )
 ):
-    """List all runs for a given experiment."""
-    # TODO
-    console.print(
-        f"Listing runs for experiment [bold cyan]{experiment_id}[/bold cyan]..."
-    )
+    """List all runs and their metrics for a given experiment."""
+    tracker = ctx.obj
+    try:
+        results_df = tracker.load_results(experiment_name_or_id)
+
+        if results_df.empty:
+            console.print(
+                f"No runs found for experiment '{experiment_name_or_id}'.",
+                style="yellow",
+            )
+            return
+
+        metric_columns = [
+            col for col in results_df.columns if col.startswith("param_") is False
+        ]
+        table = Table(
+            "Run ID",
+            *metric_columns,
+            title=f"Runs for Experiment {experiment_name_or_id}",
+        )
+
+        for run_id, row_data in results_df.iterrows():
+            row_values = [run_id]
+            for metric in metric_columns:
+                value = row_data.get(metric)
+                if isinstance(value, float):
+                    row_values.append(f"{value:.4f}")
+                else:
+                    row_values.append(str(value) if value is not None else "N/A")
+
+            table.add_row(*row_values)
+
+        console.print(table)
+
+    except exceptions.ExperimentNotFound as e:
+        console.print(f"Error: {e}", style="bold red")
+        raise typer.Exit(1)
 
 
 @runs_app.command("get")
 def get_run_details(
+    ctx: typer.Context,
     run_id: str = typer.Argument(..., help="The ID of the run to inspect.")
 ):
     """Display the detailed parameters, metrics, and artifacts for a specific run."""
+    tracker = ctx.obj
     details = tracker.get_run_details(run_id)
 
     if not details:
@@ -133,14 +261,21 @@ def get_run_details(
 
 @runs_app.command("download-artifact")
 def download_artifact(
+    ctx: typer.Context,
     run_id: str = typer.Argument(..., help="The ID of the run."),
-    artifact_name: str = typer.Argument(..., help="The filename of the artifact to download."),
+    artifact_name: str = typer.Argument(
+        ..., help="The filename of the artifact to download."
+    ),
     output_path: Optional[str] = typer.Option(
-        None, "-o", "--output-path",
-        help="Optional directory to save the artifact. Defaults to the current directory."
-    )
+        None,
+        "-o",
+        "--output-path",
+        help="Optional directory to save the artifact. Defaults to the current directory.",
+    ),
 ):
     """Download an artifact from a specific run."""
+    tracker = ctx.obj
+
     try:
         source_path = tracker.get_artifact_path(run_id, artifact_name)
 
@@ -162,12 +297,94 @@ def download_artifact(
         console.print(f"Error: {e}", style="bold red")
         raise typer.Exit(1)
 
+
+@runs_app.command("compare")
+def compare_runs(
+    ctx: typer.Context,
+    run_ids: List[str] = typer.Argument(..., help="Two or more run IDs to compare.")
+):
+    """Compare the parameters and metrics of multiple runs side-by-side."""
+    tracker = ctx.obj
+
+    if len(run_ids) < 2:
+        console.print(
+            "Error: You must provide at least two run IDs to compare.", style="bold red"
+        )
+        raise typer.Exit(1)
+
+    run_details = {}
+    for run_id in run_ids:
+        details = tracker.get_run_details(run_id)
+        if not details:
+            console.print(
+                f"Warning: Run with ID '{run_id}' not found. Skipping.", style="yellow"
+            )
+            continue
+        run_details[run_id] = details
+
+    if len(run_details) < 2:
+        console.print(
+            "Error: Could not find at least two valid runs to compare.",
+            style="bold red",
+        )
+        raise typer.Exit(1)
+
+    # Params
+    param_table = Table(title="Parameter Comparison")
+    param_table.add_column("Parameter", style="cyan")
+    all_param_keys = sorted(
+        set(key for data in run_details.values() for key in data["params"])
+    )
+
+    for run_id in run_details:
+        param_table.add_column(run_id)
+
+    for key in all_param_keys:
+        values = [run_details[run_id]["params"].get(key) for run_id in run_details]
+        # Highlight parameters that are different across runs
+        if len(set(map(str, values))) > 1:
+            row_values = [f"[yellow]{str(v)}[/yellow]" for v in values]
+        else:
+            row_values = [str(values[0])] * len(values)
+        param_table.add_row(key, *row_values)
+
+    # Metrics
+    metric_table = Table(title="Metric Comparison")
+    metric_table.add_column("Metric", style="cyan")
+    all_metric_keys = sorted(
+        set(key for data in run_details.values() for key in data["metrics"])
+    )
+
+    for run_id in run_details:
+        metric_table.add_column(run_id)
+
+    for key in all_metric_keys:
+        values = [run_details[run_id]["metrics"].get(key) for run_id in run_details]
+        # Highlight max values
+        valid_values = [v for v in values if v is not None]
+        max_value = max(valid_values) if valid_values else None
+
+        row_values = []
+        for v in values:
+            if v == max_value:
+                row_values.append(f"[bold green]{v:.4f}[/bold green]")
+            elif v is not None:
+                row_values.append(f"{v:.4f}")
+            else:
+                row_values.append("N/A")
+        metric_table.add_row(key, *row_values)
+
+    console.print(param_table)
+    console.print(metric_table)
+
+
 ## Registry
 
-
 @registry_app.command("list")
-def list_registered_models():
+def list_registered_models(ctx: typer.Context,):
     """List all models in the registry."""
+    tracker = ctx.obj
+
     console.print("Listing registered models...")
     try:
         model_names = tracker.list_registered_models()
@@ -215,12 +432,15 @@ def list_registered_models():
 
 @registry_app.command("get-versions")
 def list_registered_model_versions(
+    ctx: typer.Context,
     model_name: str = typer.Argument(
         ...,
         help="The name of the registered model. Use '[bold cyan]runelog registry list[/bold cyan]' to see options.",
     )
 ):
     """List all versions of a model in the registry."""
+    tracker = ctx.obj
+
     try:
         versions = tracker.get_model_versions(model_name=model_name)
 
@@ -267,6 +487,7 @@ def list_registered_model_versions(
 
 @registry_app.command("tag")
 def manage_tags(
+    ctx: typer.Context,
     model_name: str = typer.Argument(..., help="The name of the registered model."),
     version: str = typer.Argument(..., help="The version to modify."),
     add_tags: Optional[List[str]] = typer.Option(
@@ -280,6 +501,8 @@ def manage_tags(
     ),
 ):
     """Add or remove tags for a specific model version in the registry."""
+    tracker = ctx.obj
+
     try:
         # Get the existing tags
         current_tags = tracker.get_model_tags(model_name, version)
@@ -314,9 +537,11 @@ def manage_tags(
         console.print(f"Error: {e}", style="bold red")
         raise typer.Exit(1)
 
+
 # TODO
 @registry_app.command("serve")
 def serve_model(
+    ctx: typer.Context,
     model_name: str = typer.Argument(..., help="The name of the model to serve."),
     version: str = "latest",
     port: int = 8000,
@@ -324,9 +549,69 @@ def serve_model(
 ):
     # runelog registry serve my-model --version latest --port 8000
     console.print(
-            "Model serving is not yet supported in RuneLog 0.1.0", style="bold red"
-        )
-    
+        "Model serving is not yet supported in RuneLog 0.1.0", style="bold red"
+    )
 
-def main():
-    app()
+
+# UI
+
+
+@app.command()
+def ui():
+    """Launch the Runelog Streamlit web UI."""
+    console.print("🚀 Launching the Streamlit UI...", style="bold green")
+
+    cli_dir = os.path.dirname(__file__)
+    project_root = os.path.abspath(os.path.join(cli_dir, "..", ".."))
+    app_path = os.path.join(project_root, "app", "main.py")
+
+    if not os.path.exists(app_path):
+        console.print(
+            f"Error: Could not find app entrypoint at {app_path}", style="bold red"
+        )
+        raise typer.Exit(1)
+
+    command = [sys.executable, "-m", "streamlit", "run", app_path]
+
+    try:
+        subprocess.run(command)
+    except Exception as e:
+        console.print(f"Error launching Streamlit UI: {e}", style="bold red")
+        raise typer.Exit(1)
+
+
+# Examples
+
+def _run_example(script_name: str):
+    """Helper function to find and execute an example script."""
+    console.print(f"▶ Running example: [bold green]{script_name}[/bold green]\n")
+
+    cli_dir = os.path.dirname(__file__)
+    project_root = os.path.abspath(os.path.join(cli_dir, "..", ".."))
+    script_path = os.path.join(project_root, "examples", script_name)
+
+    if not os.path.exists(script_path):
+        console.print(
+            f"Error: Example script not found at {script_path}", style="bold red"
+        )
+        raise typer.Exit(1)
+
+    command = [sys.executable, script_path]
+
+    try:
+        subprocess.run(command, check=True)
+    except subprocess.CalledProcessError as e:
+        console.print(f"\nError running script '{script_name}': {e}", style="bold red")
+        raise typer.Exit(1)
+
+
+@examples_app.command("minimal")
+def run_minimal_example():
+    """Run the minimal_tracking.py example script."""
+    _run_example("minimal_tracking.py")
+
+
+@examples_app.command("train")
+def run_train_example():
+    """Run the train_model.py example script."""
+    _run_example("train_model.py")
