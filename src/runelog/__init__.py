@@ -21,13 +21,17 @@ from .exceptions import (
 )
 
 
-def get_tracker() -> RuneLog:
+def get_tracker(path: str = ".") -> RuneLog:
     """
     Initializes and returns the main tracker instance.
 
     This is the primary entry point for interacting with the Runelog library.
     The returned object is used to create experiments, start runs, and log
     all relevant machine learning data.
+
+    Args:
+        path (str, optional): The root directory for storing experiments.
+            Defaults to the current directory.
 
     Returns:
         RuneLog: An instance of the main tracker class, ready to be used.
@@ -42,7 +46,7 @@ def get_tracker() -> RuneLog:
 
 
     """
-    return RuneLog()
+    return RuneLog(path=path)
 
 
 __all__ = ["get_tracker", "RuneLog", "exceptions", "__version__"]
