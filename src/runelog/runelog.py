@@ -253,6 +253,24 @@ class RuneLog:
 
     # Reading
 
+    def get_experiment(self, experiment_id: str) -> Optional[Dict]:
+        """
+        Gets the metadata for a single experiment by its ID.
+
+        Args:
+            experiment_id (str): The ID of the experiment to retrieve.
+
+        Returns:
+            Optional[Dict]: A dictionary containing the experiment's metadata,
+                or None if not found.
+        """
+        meta_path = os.path.join(self._mlruns_dir, experiment_id, "meta.json")
+        if os.path.exists(meta_path):
+            with open(meta_path, "r") as f:
+                return json.load(f)
+        return None
+    
+
     def get_run(self, run_id: str) -> Optional[Dict]:
         """Loads the parameters and metrics for a specific run.
 
@@ -293,8 +311,31 @@ class RuneLog:
 
                 return {"run_id": run_id, **params, **metrics}
         return None
+    
+    def _resolve_experiment_id(self, name_or_id: str) -> str:
+        """
+        Finds an experiment's ID from either its name or its ID.
 
-    def load_results(self, experiment_id: str) -> pd.DataFrame:
+        Args:
+            name_or_id (str): The name or ID of the experiment.
+
+        Returns:
+            str: The canonical experiment ID.
+
+        Raises:
+            exceptions.ExperimentNotFound: If no matching experiment is found.
+        """
+        if os.path.isdir(os.path.join(self._mlruns_dir, name_or_id)):
+            return name_or_id
+
+        for experiment in self.list_experiments():
+            if experiment.get("name") == name_or_id:
+                return experiment["experiment_id"]
+        
+        raise exceptions.ExperimentNotFound(name_or_id)
+
+
+    def load_results(self, experiment_name_or_id: str) -> pd.DataFrame:
         """Loads all run data from an experiment into a pandas DataFrame.
 
         Args:
@@ -311,6 +352,7 @@ class RuneLog:
         """
         import pandas as pd
 
+        experiment_id = self._resolve_experiment_id(experiment_name_or_id)
         experiment_path = os.path.join(self._mlruns_dir, experiment_id)
         if not os.path.exists(experiment_path):
             raise exceptions.ExperimentNotFound(experiment_id)
@@ -327,6 +369,7 @@ class RuneLog:
             return pd.DataFrame()
 
         return pd.DataFrame(all_runs_data).set_index("run_id").sort_index()
+
 
     # Model Registry
 
@@ -368,7 +411,6 @@ class RuneLog:
                 artifact_path=artifact_name, run_id=run_id
             )
 
-        # Create the destination directory in the registry
         registry_model_path = os.path.join(self._registry_dir, model_name)
         os.makedirs(registry_model_path, exist_ok=True)
 
