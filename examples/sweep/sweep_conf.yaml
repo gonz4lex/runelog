@@ -1,0 +1,47 @@
+experiment_name: "sweep-example"
+
+dataset:
+  source: "sklearn.datasets.load_iris"
+
+validation:
+  # Can be 'train_test_split' or 'cross_validation'
+  strategy: "cross_validation"
+  params:
+    # For cross_validation, specify number of splits
+    n_splits: 5
+    # For train_test_split, you would use:
+    # test_size: 0.2
+    # random_state: 0
+
+evaluation:
+  metrics:
+    - "accuracy_score"
+    - "f1_score"
+    - "precision_score"
+  # Optional: Parameters for metrics, like averaging for multi-class
+  metric_params:
+    f1_score:
+      average: "macro"
+    precision_score:
+      average: "macro"
+
+runs:
+  - id: "logistic-regression-lbfgs"
+    model_class: "sklearn.linear_model.LogisticRegression"
+    model_params:
+      solver: "lbfgs"
+      C: 1.0
+      max_iter: 2000
+
+  - id: "decision-tree-gini"
+    model_class: "sklearn.tree.DecisionTreeClassifier"
+    model_params:
+      criterion: "gini"
+      max_depth: 5
+
+  - id: "random-forest-200-entropy"
+    model_class: "sklearn.ensemble.RandomForestClassifier"
+    model_params:
+      n_estimators: 200
+      criterion: "entropy"
+      random_state: 0
