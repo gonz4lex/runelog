@@ -1,8 +1,11 @@
 # RuneLog
 
 [![Build Status](https://github.com/gonz4lex/runelog/actions/workflows/tests.yml/badge.svg)](https://github.com/gonz4lex/runelog/actions/workflows/tests.yml)
-[![Codecov](https://codecov.io/gh/gonz4lex/runelog/branch/main/graph/badge.svg?token=YOUR_CODECOV_TOKEN)](https://codecov.io/gh/gonz4lex/runelog)
+[![Codecov](https://codecov.io/gh/gonz4lex/runelog/branch/develop/graph/badge.svg)](https://codecov.io/gh/gonz4lex/runelog)
 [![Ask DeepWiki](https://deepwiki.com/badge.svg)](https://deepwiki.com/gonz4lex/runelog)
+[![Docs](https://github.com/gonz4lex/runelog/actions/workflows/deploy-docs.yml/badge.svg)](https://github.com/gonz4lex/runelog/actions/workflows/deploy-docs.yml)
+
+<!-- [![License](https://img.shields.io/pypi/l/runelog.svg)](https://opensource.org/licenses/MIT) -->
 <!-- [![PyPI version](https://badge.fury.io/py/runelog.svg)](https://badge.fury.io/py/runelog) -->
 
 ## Lightweight ML Tracker
