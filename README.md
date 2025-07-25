@@ -1,11 +1,17 @@
 # RuneLog
+
+[![Build Status](https://github.com/gonz4lex/runelog/actions/workflows/tests.yml/badge.svg)](https://github.com/gonz4lex/runelog/actions/workflows/tests.yml)
+[![Codecov](https://codecov.io/gh/gonz4lex/runelog/branch/main/graph/badge.svg?token=YOUR_CODECOV_TOKEN)](https://codecov.io/gh/gonz4lex/runelog)
+[![Ask DeepWiki](https://deepwiki.com/badge.svg)](https://deepwiki.com/gonz4lex/runelog)
+<!-- [![PyPI version](https://badge.fury.io/py/runelog.svg)](https://badge.fury.io/py/runelog) -->
+
 ## Lightweight ML Tracker
 
 A simple, file-based Python library for tracking machine learning experiments, inspired by MLflow.
 
 **Current Status**: In active development. The core API is functional but subject to change.
 
-The name *Runelog* is a play on words. It evokes the common `run.log()` command used to log an experiment in tracking systems, while also treating these powerful, and sometimes mysterious, models as modern-day mystical writings: a "log of runes".
+The name *RuneLog* is a play on words. It evokes the common `run.log()` command used to log an experiment in tracking systems, while also treating these powerful, and sometimes mysterious, models as modern-day mystical writings: a "log of runes".
 
 ---
 
