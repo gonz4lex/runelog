@@ -3,7 +3,7 @@ from rich.console import Console
 from rich.table import Table
 from rich.panel import Panel
 
-from . import exceptions
+from runelog import get_tracker, exceptions
 from runelog.runner import run_sweep
 
 import os
@@ -13,8 +13,27 @@ import subprocess
 from datetime import datetime
 from typing import Optional, List
 
-# Main app and sub-commands
-app = typer.Typer(help="RuneLog CLI: Lightweight ML experiment tracker.")
+ASCII_ART = """
+ ██▀███   █    ██  ███▄    █ ▓█████  ██▓     ▒█████    ▄████ 
+▓██ ▒ ██▒ ██  ▓██▒ ██ ▀█   █ ▓█   ▀ ▓██▒    ▒██▒  ██▒ ██▒ ▀█▒
+▓██ ░▄█ ▒▓██  ▒██░▓██  ▀█ ██▒▒███   ▒██░    ▒██░  ██▒▒██░▄▄▄░
+▒██▀▀█▄  ▓▓█  ░██░▓██▒  ▐▌██▒▒▓█  ▄ ▒██░    ▒██   ██░░▓█  ██▓
+░██▓ ▒██▒▒▒█████▓ ▒██░   ▓██░░▒████▒░██████▒░ ████▓▒░░▒▓███▀▒
+░ ▒▓ ░▒▓░░▒▓▒ ▒ ▒ ░ ▒░   ▒ ▒ ░░ ▒░ ░░ ▒░▓  ░░ ▒░▒░▒░  ░▒   ▒ 
+  ░▒ ░ ▒░░░▒░ ░ ░ ░ ░░   ░ ▒░ ░ ░  ░░ ░ ▒  ░  ░ ▒ ▒░   ░   ░ 
+  ░░   ░  ░░░ ░ ░    ░   ░ ░    ░     ░ ░   ░ ░ ░ ▒  ░ ░   ░ 
+   ░        ░              ░    ░  ░    ░  ░    ░ ░        ░                                                         
+
+   RuneLog CLI: Lightweight ML experiment tracker.
+
+   """
+
+HEADER = Panel(
+    ASCII_ART, style="bold cyan", border_style="dim", title="[dim]v0.1.0[/dim]"
+)
+
+# Main app and subcommands
+app = typer.Typer(rich_markup_mode="rich")
 experiments_app = typer.Typer()
 runs_app = typer.Typer()
 registry_app = typer.Typer()
@@ -28,14 +47,44 @@ app.add_typer(examples_app, name="examples", help="Run example scripts.")
 # Console object for rich printing
 console = Console()
 
+
+@app.callback(invoke_without_command=True)
+def main_callback(
+    ctx: typer.Context,
+    version: Optional[bool] = typer.Option(
+        None, "--version", "-v", help="Show the application's version and exit."
+    ),
+    help: bool = typer.Option(
+        False, "--help", "-h",
+        is_eager=True,
+        help="Show this message and exit."
+    )
+):
+    """
+    Initialize the tracker and handle top-level commands.
+    """
+    if version:
+        console.print("Runelog CLI v0.1.0") # TODO: runelog.__version__
+        raise typer.Exit()
+        
+    if help or (ctx.invoked_subcommand is None and not version):
+        console.print(HEADER)
+        typer.echo(ctx.get_help()) # Display Typer help
+        raise typer.Exit()
+        
+    if ctx.obj is None:
+        ctx.obj = get_tracker()
+
+
 ## Experiments
+
 
 @experiments_app.command("list")
 def list_experiments(ctx: typer.Context):
     """List all available experiments."""
     tracker = ctx.obj
     experiments = tracker.list_experiments()
-    
+
     if not experiments:
         console.print("No experiments found.", style="yellow")
         return
@@ -52,7 +101,7 @@ def get_experiment_details(
     ctx: typer.Context,
     experiment_name_or_id: str = typer.Argument(
         ..., help="The ID of the experiment to retrieve."
-    )
+    ),
 ):
     """Get details for a specific experiment."""
     tracker = ctx.obj
@@ -104,7 +153,9 @@ def get_experiment_details(
 @experiments_app.command("delete")
 def delete_experiment(
     ctx: typer.Context,
-    experiment_id: str = typer.Argument(..., help="The ID of the experiment to delete.")
+    experiment_id: str = typer.Argument(
+        ..., help="The ID of the experiment to delete."
+    ),
 ):
     """Delete an experiment and all of its associated runs."""
     tracker = ctx.obj
@@ -144,7 +195,8 @@ def export_experiment(
     tracker = ctx.obj
 
     try:
-        results_df = tracker.load_results(experiment_name_or_id)
+        exp_id = tracker._resolve_experiment_id(experiment_name_or_id)
+        results_df = tracker.load_results(exp_id)
 
         if results_df.empty:
             console.print(
@@ -173,12 +225,13 @@ def export_experiment(
 
 ## Runs
 
+
 @runs_app.command("list")
 def list_runs(
     ctx: typer.Context,
     experiment_name_or_id: str = typer.Argument(
         ..., help="The ID of the experiment whose runs you want to list."
-    )
+    ),
 ):
     """List all runs and their metrics for a given experiment."""
     tracker = ctx.obj
@@ -222,7 +275,7 @@ def list_runs(
 @runs_app.command("get")
 def get_run_details(
     ctx: typer.Context,
-    run_id: str = typer.Argument(..., help="The ID of the run to inspect.")
+    run_id: str = typer.Argument(..., help="The ID of the run to inspect."),
 ):
     """Display the detailed parameters, metrics, and artifacts for a specific run."""
     tracker = ctx.obj
@@ -293,7 +346,7 @@ def download_artifact(
 @runs_app.command("compare")
 def compare_runs(
     ctx: typer.Context,
-    run_ids: List[str] = typer.Argument(..., help="Two or more run IDs to compare.")
+    run_ids: List[str] = typer.Argument(..., help="Two or more run IDs to compare."),
 ):
     """Compare the parameters and metrics of multiple runs side-by-side."""
     tracker = ctx.obj
@@ -372,12 +425,38 @@ def compare_runs(
 
 ## Registry
 
+
+@registry_app.command("register")
+def register_model(
+    ctx: typer.Context,
+    run_id: str = typer.Argument(..., help="The ID of the run containing the model."),
+    artifact_name: str = typer.Argument(
+        ..., help="The filename of the model artifact (e.g., 'model.pkl')."
+    ),
+    model_name: str = typer.Argument(..., help="The name to register the model under."),
+):
+    """Register a model from a run's artifact to the model registry."""
+    tracker = ctx.obj
+    try:
+        console.print(
+            f"Registering artifact '[bold cyan]{artifact_name}[/bold cyan]' from run '[bold yellow]{run_id}[/bold yellow]'..."
+        )
+        version = tracker.register_model(run_id, artifact_name, model_name)
+        console.print(
+            f"Successfully registered model '[bold green]{model_name}[/bold green]' as version [bold blue]{version}[/bold blue]."
+        )
+    except (exceptions.RunNotFound, exceptions.ArtifactNotFound) as e:
+        console.print(f"Error: {e}", style="bold red")
+        raise typer.Exit(1)
+
+
 @registry_app.command("list")
-def list_registered_models(ctx: typer.Context,):
+def list_registered_models(
+    ctx: typer.Context,
+):
     """List all models in the registry."""
     tracker = ctx.obj
 
-    console.print("Listing registered models...")
     try:
         model_names = tracker.list_registered_models()
 
@@ -428,7 +507,7 @@ def list_registered_model_versions(
     model_name: str = typer.Argument(
         ...,
         help="The name of the registered model. Use '[bold cyan]runelog registry list[/bold cyan]' to see options.",
-    )
+    ),
 ):
     """List all versions of a model in the registry."""
     tracker = ctx.obj
@@ -470,7 +549,7 @@ def list_registered_model_versions(
                 tag_str,
             )
 
-            console.print(table)
+        console.print(table)
 
     except Exception as e:
         console.print(f"An error occurred: {e}", style="bold red")
@@ -574,6 +653,7 @@ def ui():
 
 # Examples
 
+
 def _run_example(script_name: str):
     """Helper function to find and execute an example script."""
     console.print(f"▶ Running example: [bold green]{script_name}[/bold green]\n")
@@ -610,32 +690,32 @@ def run_train_example():
 
 
 @examples_app.command("sweep")
-def run_train_example():
-    """Run the train_model.py example script."""
+def run_sweep_example():
+    """Run the sweep.py example script."""
     _run_example("sweep/sweep.py")
 
 
 # Sweep
 
+
 @app.command()
 def sweep(
     config_path: str = typer.Option(
-        ..., 
-        "--config", 
-        "-c", 
+        ...,
+        "--config",
+        "-c",
         help="Path to the sweep config YAML file.",
         exists=True,
     )
 ):
     """Run a series of experiments from a configuration file."""
-    # The console is now created and used only within the CLI
-    console = Console() 
     try:
-        console.print(f"🚀 Loading configuration from: [bold green]{config_path}[/bold green]")
-        
-        # Pass the console's print method as the handler
+        console.print(
+            f"🚀 Loading configuration from: [bold green]{config_path}[/bold green]"
+        )
+
         run_sweep(config_path, progress_handler=console.print)
-        
+
         console.print("\nSweep finished successfully! ✨", style="bold green")
     except Exception as e:
         console.print(f"\n❌ An error occurred during the sweep: {e}", style="bold red")
