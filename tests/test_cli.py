@@ -2,8 +2,8 @@ import pytest
 import os
 from typer.testing import CliRunner
 
-from src.runelog.cli import app
-from src.runelog import get_tracker, exceptions
+from runelog.cli import app
+from runelog import get_tracker, exceptions
 
 runner = CliRunner()
 
@@ -115,7 +115,9 @@ class TestRunsCommands:
 
     def test_get_not_found(self, test_tracker):
         """Tests 'runs get' with a non-existent run ID."""
-        result = runner.invoke(app, ["runs", "get", "nonexistent-run"], obj=test_tracker)
+        result = runner.invoke(
+            app, ["runs", "get", "nonexistent-run"], obj=test_tracker
+        )
         assert result.exit_code == 0
         assert "Error: Run with ID 'nonexistent-run' not found" in result.stdout
 
@@ -148,7 +150,9 @@ class TestRegistryCommands:
         test_tracker.register_model(run_id, "model.pkl", "tag-model")
 
         result = runner.invoke(
-            app, ["registry", "tag", "tag-model", "1", "--add", "status=production"], obj=test_tracker
+            app,
+            ["registry", "tag", "tag-model", "1", "--add", "status=production"],
+            obj=test_tracker,
         )
         assert result.exit_code == 0
         assert "Updated tags successfully" in result.stdout

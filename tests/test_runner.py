@@ -3,8 +3,8 @@ import yaml
 import pandas as pd
 from unittest.mock import MagicMock
 
-from src.runelog.runner import _load_data, _run_single_experiment, run_sweep
-from src.runelog import get_tracker
+from runelog.runner import _load_data, _run_single_experiment, run_sweep
+from runelog import get_tracker
 
 
 def test_load_data_from_sklearn():
@@ -112,7 +112,7 @@ def test_run_sweep_full_workflow(monkeypatch, mock_tracker, sweep_config_file):
     Tests the entire run_sweep workflow, ensuring it calls the tracker
     and logs data correctly.
     """
-    monkeypatch.setattr("src.runelog.runner.get_tracker", lambda: mock_tracker)
+    monkeypatch.setattr("runelog.runner.get_tracker", lambda: mock_tracker)
 
     mock_handler = MagicMock()
 

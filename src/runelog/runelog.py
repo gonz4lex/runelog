@@ -269,7 +269,6 @@ class RuneLog:
             with open(meta_path, "r") as f:
                 return json.load(f)
         return None
-    
 
     def get_run(self, run_id: str) -> Optional[Dict]:
         """Loads the parameters and metrics for a specific run.
@@ -311,7 +310,7 @@ class RuneLog:
 
                 return {"run_id": run_id, **params, **metrics}
         return None
-    
+
     def _resolve_experiment_id(self, name_or_id: str) -> str:
         """
         Finds an experiment's ID from either its name or its ID.
@@ -331,9 +330,8 @@ class RuneLog:
         for experiment in self.list_experiments():
             if experiment.get("name") == name_or_id:
                 return experiment["experiment_id"]
-        
-        raise exceptions.ExperimentNotFound(name_or_id)
 
+        raise exceptions.ExperimentNotFound(name_or_id)
 
     def load_results(self, experiment_name_or_id: str) -> pd.DataFrame:
         """Loads all run data from an experiment into a pandas DataFrame.
@@ -369,7 +367,6 @@ class RuneLog:
             return pd.DataFrame()
 
         return pd.DataFrame(all_runs_data).set_index("run_id").sort_index()
-
 
     # Model Registry
 
@@ -578,7 +575,7 @@ class RuneLog:
                     versions_data.append(meta)
 
         return versions_data
-    
+
     def get_artifact_abspath(self, run_id: str, artifact_name: str) -> str:
         """
         Gets the absolute path of a specific artifact from a given run.
@@ -604,12 +601,14 @@ class RuneLog:
             if os.path.isdir(os.path.join(self._mlruns_dir, eid, run_id)):
                 exp_id = eid
                 break
-        
+
         artifact_path = os.path.join(
             self._mlruns_dir, exp_id, run_id, "artifacts", artifact_name
         )
 
-        if artifact_name not in run_details["artifacts"] or not os.path.exists(artifact_path):
+        if artifact_name not in run_details["artifacts"] or not os.path.exists(
+            artifact_path
+        ):
             raise exceptions.ArtifactNotFound(artifact_name, run_id)
-        
+
         return artifact_path

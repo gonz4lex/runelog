@@ -55,23 +55,21 @@ def main_callback(
         None, "--version", "-v", help="Show the application's version and exit."
     ),
     help: bool = typer.Option(
-        False, "--help", "-h",
-        is_eager=True,
-        help="Show this message and exit."
-    )
+        False, "--help", "-h", is_eager=True, help="Show this message and exit."
+    ),
 ):
     """
     Initialize the tracker and handle top-level commands.
     """
     if version:
-        console.print("Runelog CLI v0.1.0") # TODO: runelog.__version__
+        console.print("Runelog CLI v0.1.0")  # TODO: runelog.__version__
         raise typer.Exit()
-        
+
     if help or (ctx.invoked_subcommand is None and not version):
         console.print(HEADER)
-        typer.echo(ctx.get_help()) # Display Typer help
+        typer.echo(ctx.get_help())  # Display Typer help
         raise typer.Exit()
-        
+
     if ctx.obj is None:
         ctx.obj = get_tracker()
 
