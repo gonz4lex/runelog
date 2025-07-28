@@ -1,5 +1,5 @@
-import pytest
 import os
+import pytest
 from typer.testing import CliRunner
 
 from runelog.cli import app
@@ -123,6 +123,28 @@ class TestRunsCommands:
 
 
 class TestRegistryCommands:
+    def test_register_success(self, test_tracker):
+        """Tests that 'registry register' successfully registers a model."""
+        exp_id = test_tracker.get_or_create_experiment("test-register-command")
+
+        with test_tracker.start_run(experiment_id=exp_id) as run_id:
+            test_tracker.log_model(MockModel(), "model.pkl")
+
+        model_name = "cli-registered-model"
+
+        result = runner.invoke(
+            app,
+            ["registry", "register", run_id, "model.pkl", model_name],
+            obj=test_tracker,
+        )
+
+        assert result.exit_code == 0
+        assert "Successfully registered model" in result.stdout
+        assert model_name in result.stdout
+
+        registered_models = test_tracker.list_registered_models()
+        assert model_name in registered_models
+
     def test_list_success(self, test_tracker):
         """Tests 'registry list' when models exist."""
         exp_id = test_tracker.get_or_create_experiment("test-list-registry-success")
@@ -166,3 +188,13 @@ class TestRegistryCommands:
         )
         assert result.exit_code == 1
         assert "Error: Model 'no-model' version '1' not found" in result.stdout
+
+    def test_register_run_not_found(self):
+        """Tests that 'registry register' fails gracefully for a non-existent run."""
+        result = runner.invoke(
+            app,
+            ["registry", "register", "nonexistent-run-id", "model.pkl", "test-model"],
+        )
+
+        assert result.exit_code != 0
+        assert "Error: Run with ID 'nonexistent-run-id' not found" in result.stdout
