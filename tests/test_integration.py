@@ -1,5 +1,5 @@
 import pytest
-from src.runelog import get_tracker, exceptions
+from runelog import get_tracker, exceptions
 
 class MockModel:
     def __init__(self, val=1):
