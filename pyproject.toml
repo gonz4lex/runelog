@@ -14,7 +14,6 @@ classifiers = [
     "License :: OSI Approved :: MIT License",
     "Operating System :: OS Independent",
     "Topic :: Scientific/Engineering :: Artificial Intelligence",
-    "Framework :: Streamlit",
 ]
 
 dependencies = [
@@ -32,7 +31,7 @@ docs = [
     "mkdocs",
     "mkdocs-material",
     "mkdocstrings[python]",
-    "pymdownx-extensions"
+    "pymdown-extensions"
 ]
 test = [
     "pytest",
@@ -46,7 +45,7 @@ dev = [
     "mkdocs",
     "mkdocs-material",
     "mkdocstrings[python]",
-    "pymdownx-extensions",
+    "pymdown-extensions",
     "pytest",
     "pytest-cov",
     "coverage",
@@ -60,30 +59,37 @@ runelog = "runelog.cli:app"
 "Homepage" = "https://github.com/gonz4lex/runelog"
 "Bug Tracker" = "https://github.com/gonz4lex/runelog/issues"
 
-[tool.setuptools.dynamic]
-version = { attr = "runelog.__version__" }
-
-[tool.setuptools.packages.find]
-where = ["src"]
+[tool.hatch.version]
+path = "src/runelog/__init__.py"
 
 [build-system]
-requires = ["setuptools", "wheel"]
-build-backend = "setuptools.build_meta"
+requires = ["hatchling"]
+build-backend = "hatchling.build"
 
 [tool.hatch.metadata]
 allow-direct-references = true
 
-[tool.hatch.version]
-path = "src/runelog/__init__.py"
-
 [tool.hatch.envs.default]
+pre-install-commands = [
+  "python -m pip install --upgrade pip",
+]
+features = ["dev"]
+
+[tool.hatch.envs.test]
 dependencies = [
   "pytest",
   "pytest-cov",
-  "coverage",
-  "black",
+  "coverage"
 ]
 
-[tool.hatch.envs.default.scripts]
-test = "pytest --cov=runelog --cov-report=term-missing --cov-report=xml"
+[tool.hatch.envs.test.scripts]
+run = "pytest --cov=src/runelog --cov-report=term-missing --cov-report=xml"
+
+[tool.hatch.envs.lint]
+dependencies = [
+  "black",
+]
+detached = true
+
+[tool.hatch.envs.lint.scripts]
 format = "black src tests"
