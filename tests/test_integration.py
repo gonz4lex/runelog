@@ -1,9 +1,11 @@
 import pytest
 from runelog import get_tracker, exceptions
 
+
 class MockModel:
     def __init__(self, val=1):
         self.val = val
+
 
 def test_core_api_workflow(tmp_path):
     """
@@ -13,15 +15,15 @@ def test_core_api_workflow(tmp_path):
 
     # Initialize the tracker in an isolated directory
     tracker = get_tracker(path=str(tmp_path))
-    
+
     exp_name = "Core API Test"
     model_name = "core-test-model"
-    
+
     # Create an experiment and run to log data
     exp_id = tracker.get_or_create_experiment(exp_name)
     exp_id_again = tracker.get_or_create_experiment(exp_name)
-    assert exp_id == exp_id_again # assert creation idempotency
-    
+    assert exp_id == exp_id_again  # assert creation idempotency
+
     with tracker.start_run(experiment_id=exp_id) as run_id:
         tracker.log_param("alpha", 0.5)
         tracker.log_metric("accuracy", 0.95)
@@ -30,7 +32,6 @@ def test_core_api_workflow(tmp_path):
     # Register the model from the completed run and add a tag
     version = tracker.register_model(run_id, "model.pkl", model_name)
     tracker.add_model_tags(model_name, version, {"status": "validated"})
-
 
     # 2. Verify the state using the library's read methods
 
@@ -78,7 +79,7 @@ def test_core_api_workflow(tmp_path):
     # Verify latest version logic
     with tracker.start_run(experiment_id=exp_id) as run_id_2:
         tracker.log_model(MockModel(val=456), "model.pkl")
-    tracker.register_model(run_id_2, "model.pkl", model_name) # This creates version 2
+    tracker.register_model(run_id_2, "model.pkl", model_name)  # This creates version 2
 
     model_versions = tracker.get_model_versions(model_name)
     assert len(model_versions) == 2
