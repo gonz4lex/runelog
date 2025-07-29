@@ -124,16 +124,24 @@ def run_sweep(config_path: str, progress_handler=None):
         handler(f"\nrun in progress: '{run_id_str}'")
 
         with tracker.start_run(experiment_id=exp_id):
-            params = run_config.get("model_params", {})
-            for key, value in params.items():
+            run_params = {
+                "run_config_id": run_id_str,
+                "model_class": run_config.get("model_class"),
+                "validation_strategy": config.get("validation", {}).get("strategy")
+            }
+            model_params = run_config.get("model_params", {})
+            all_params = {**run_params, **model_params}
+
+
+            for key, value in all_params.items():
                 tracker.log_param(key, value)
 
-            handler(f"Logged Parameters: {params}")
+            handler(f"Logged Parameters: {all_params}")
 
             # Dynamically instantiate the model
             module_path, class_name = run_config["model_class"].rsplit(".", 1)
             ModelClass = getattr(importlib.import_module(module_path), class_name)
-            model = ModelClass(**params)
+            model = ModelClass(**model_params)
 
             # Run and get metrics
             metrics = _run_single_experiment(
