@@ -10,25 +10,39 @@ To start the user interface, navigate to your project's root directory in your t
 streamlit run app/main.py
 ```
 
+You can also use the CLI:
+
+```bash
+streamlit ui
+```
+
 This will open the application in a new browser tab.
 
 -----
 
 ## The Experiment Explorer 🔬
 
-This is the main view for analyzing your experiment runs.
+This is the main view for analyzing your experiment runs. After selecting an experiment from the top dropdown, you can either inspect a single run or compare multiple runs.
 
 ### Selecting an Experiment
 
 Use the dropdown menu at the top of the page to choose which experiment you want to inspect. The table will automatically update to show all the runs for that experiment.
 
-### Inspecting a Run
+### Inspecting a Single Run
 
 The main table gives you a high-level overview of all your runs. To see the details for a specific run:
 
 1.  Find the `run_id` of the run you are interested in from the table.
 2.  Use the searchable dropdown labeled **"Select a run to view its details"** to find and select that `run_id`.
 3.  A detailed view will appear below the table, showing the specific **Parameters**, **Metrics**, and **Artifacts** for that run.
+
+### Comparing Multiple Runs
+
+The explorer also allows you to visually compare the performance of multiple runs.
+
+1. Use the "Select runs to view details or compare" dropdown and select two or more runs from the list.
+2. A "Compare Selected Runs" section will appear below the table.
+3. Choose a metric from the new dropdown to plot the comparison. A bar chart will instantly show you the results, making it easy to see which run performed best.
 
 -----
 
