@@ -4,6 +4,7 @@ import uuid
 import joblib
 import shutil
 from contextlib import contextmanager
+from datetime import datetime
 
 import pandas as pd
 
@@ -130,6 +131,7 @@ class RuneLog:
             "run_id": self._active_run_id,
             "experiment_id": self._active_experiment_id,
             "status": "RUNNING",
+            "timestamp": datetime.now().isoformat(),
         }
         with open(os.path.join(run_path, "meta.json"), "w") as f:
             json.dump(meta, f, indent=4)
@@ -184,6 +186,105 @@ class RuneLog:
             artifacts = os.listdir(artifacts_path)
 
         return {"params": params, "metrics": metrics, "artifacts": artifacts}
+    
+    def get_experiment_runs(self, experiment_id: str) -> List[Dict]:
+        """Return a list of individual runs for the given experiment.
+
+        Args:
+            experiment_id (str): The ID of the experiment to query.
+
+        Returns:
+            List[Dict]: A list of run dictionaries, each containing:
+                - run_id (str): Folder name or unique ID of the run.
+                - timestamp (str | None): ISO 8601 timestamp of the run, or None.
+                - status (str | None): Run status if available in meta.json.
+                - other metadata keys as present in meta.json.
+        """
+        runs = []
+        exp_path = os.path.join(self._mlruns_dir, experiment_id)
+
+        if not os.path.isdir(exp_path):
+            return runs
+
+        for item in os.listdir(exp_path):
+            run_path = os.path.join(exp_path, item)
+            if os.path.isdir(run_path):
+                meta_path = os.path.join(run_path, "meta.json")
+                if os.path.exists(meta_path):
+                    with open(meta_path, "r") as f:
+                        meta = json.load(f)
+                    run_id = item
+                    timestamp = meta.get("timestamp")
+                    if timestamp is None:
+                        # Fallback: use file modification time
+                        ts = os.path.getmtime(meta_path)
+                        timestamp = datetime.fromtimestamp(ts).isoformat()
+                    run_data = {
+                        "run_id": run_id,
+                        "timestamp": timestamp,
+                        "status": meta.get("status"),
+                        **{k: v for k, v in meta.items() if k not in {"timestamp", "status"}}
+                    }
+                    runs.append(run_data)
+
+        runs.sort(key=lambda x: x.get("timestamp") or "", reverse=True)
+        return runs
+
+    def get_experiment_summaries(self) -> List[Dict]:
+        """Obtain summaries for all experiments, including run statistics:
+        number of runs, the timestamp of the most recent run, and the creation time
+        of the experiment.
+
+        Returns:
+            List[Dict]: A list of dictionaries, each representing a summarized view
+            of an experiment. Each dictionary contains:
+                - experiment_id (str): Unique identifier of the experiment.
+                - name (str): Human-readable name of the experiment.
+                - created_at (str | None): ISO 8601 timestamp of the experiment's creation,
+                or None if not available.
+                - num_runs (int): Total number of runs recorded for the experiment.
+                - last_run (str | None): ISO 8601 timestamp of the most recent run,
+                or None if no runs exist.
+        """
+        summaries = []
+        for exp in self.list_experiments():
+            exp_id = exp["experiment_id"]
+            exp_name = exp.get("name", "—")
+            exp_path = os.path.join(self._mlruns_dir, exp_id)
+
+            run_timestamps = []
+            for item in os.listdir(exp_path):
+                run_path = os.path.join(exp_path, item)
+                if os.path.isdir(run_path):
+                    meta_path = os.path.join(run_path, "meta.json")
+                    if os.path.exists(meta_path):
+                        with open(meta_path, "r") as f:
+                            meta = json.load(f)
+                            ts = meta.get("timestamp")
+                            if ts is None:
+                                ts = os.path.getmtime(meta_path)
+                                ts = datetime.fromtimestamp(ts).isoformat()
+                            run_timestamps.append(ts)
+
+            last_run = max(run_timestamps, default=None)
+            created_at_path = os.path.join(exp_path, "meta.json")
+            created_at = None
+            if os.path.exists(created_at_path):
+                created_at = datetime.fromtimestamp(
+                    os.path.getmtime(created_at_path)
+                ).isoformat()
+
+            summaries.append(
+                {
+                    "experiment_id": exp_id,
+                    "name": exp_name,
+                    "created_at": created_at,
+                    "num_runs": len(run_timestamps),
+                    "last_run": last_run,
+                }
+            )
+
+        return summaries
 
     # Logging
 

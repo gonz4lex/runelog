@@ -81,15 +81,28 @@ def main_callback(
 def list_experiments(ctx: typer.Context):
     """List all available experiments."""
     tracker = ctx.obj
-    experiments = tracker.list_experiments()
+    summaries = tracker.get_experiment_summaries()
 
-    if not experiments:
+    if not summaries:
         console.print("No experiments found.", style="yellow")
         return
 
-    table = Table("ID", "Name", title="Experiments")
-    for exp in experiments:
-        table.add_row(exp["experiment_id"], exp["name"])
+    table = Table("ID", "Name", "Runs", "Last Run", "Created At", title="Experiments", expand=True)
+    
+    for summary in summaries:
+        exp_id = summary["experiment_id"]
+        exp_name = summary.get("name", "—")
+        created_at = _fmt_timestamp(summary.get("created_at"))
+        num_runs = summary.get("num_runs", 0)
+        last_run = _fmt_timestamp(summary.get("last_run")) if summary.get("last_run") else "—"
+
+        table.add_row(
+            exp_id,
+            exp_name,
+            str(num_runs),
+            last_run,
+            created_at or "—"
+        )
 
     console.print(table)
 
@@ -125,7 +138,7 @@ def get_experiment_details(
                 col for col in results_df.columns if not col.startswith("param_")
             ]
             table = Table(
-                "Run ID", *metric_columns, title=f"Runs for Experiment {experiment_id}"
+                "Run ID", *metric_columns, title=f"Runs for Experiment {experiment_id}", expand=True
             )
 
             for run_id, row_data in results_df.iterrows():
@@ -250,6 +263,7 @@ def list_runs(
             "Run ID",
             *metric_columns,
             title=f"Runs for Experiment {experiment_name_or_id}",
+            expand=True
         )
 
         for run_id, row_data in results_df.iterrows():
@@ -285,13 +299,13 @@ def get_run_details(
 
     panel_content = f"[bold]Run ID[/bold]: {run_id}\n\n"
 
-    param_table = Table(title="Parameters")
+    param_table = Table(title="Parameters", expand=True)
     param_table.add_column("Parameter", style="cyan")
     param_table.add_column("Value", style="magenta")
     for key, value in details.get("params", {}).items():
         param_table.add_row(key, str(value))
 
-    metric_table = Table(title="Metrics")
+    metric_table = Table(title="Metrics", expand=True)
     metric_table.add_column("Metric", style="cyan")
     metric_table.add_column("Value", style="magenta")
     for key, value in details.get("metrics", {}).items():
@@ -373,7 +387,7 @@ def compare_runs(
         raise typer.Exit(1)
 
     # Params
-    param_table = Table(title="Parameter Comparison")
+    param_table = Table(title="Parameter Comparison", expand=True)
     param_table.add_column("Parameter", style="cyan")
     all_param_keys = sorted(
         set(key for data in run_details.values() for key in data["params"])
@@ -392,7 +406,7 @@ def compare_runs(
         param_table.add_row(key, *row_values)
 
     # Metrics
-    metric_table = Table(title="Metric Comparison")
+    metric_table = Table(title="Metric Comparison", expand=True)
     metric_table.add_column("Metric", style="cyan")
     all_metric_keys = sorted(
         set(key for data in run_details.values() for key in data["metrics"])
@@ -468,6 +482,7 @@ def list_registered_models(
             "Registered On",
             "Tags",
             title="Models in Registry",
+            expand=True
         )
 
         for name in model_names:
@@ -526,6 +541,7 @@ def list_registered_model_versions(
             "Source Run ID",
             "Tags",
             title=f"Versions for [bold cyan]{model_name}[/bold cyan]",
+            expand=True
         )
 
         for version_info in versions:
@@ -718,3 +734,16 @@ def sweep(
     except Exception as e:
         console.print(f"\n❌ An error occurred during the sweep: {e}", style="bold red")
         raise typer.Exit(code=1)
+
+
+# Utils
+
+def _fmt_timestamp(ts):
+    if isinstance(ts, str):
+        try:
+            ts = datetime.fromisoformat(ts)
+        except ValueError:
+            return ts
+    if isinstance(ts, datetime):
+        return ts.strftime("%Y-%m-%d %H:%M")
+    return None
