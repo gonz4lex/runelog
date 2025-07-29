@@ -113,3 +113,35 @@ python examples/minimal_tracking.py
 - 🔄 **Full Test Coverage**: Comprehensive unit and integration tests.
 
 
+### 🐳 Running the UI with Docker
+
+The easiest way to run the Runelog web UI without setting up a local Python environment is with Docker. You must have [Docker](https://www.docker.com/products/docker-desktop/) installed and running.
+
+#### Instructions
+
+1.  **Build the Docker Image**:
+    From the root of the project directory, run the following command once to build the application image.
+
+    ```bash
+    docker build -t runelog-app .
+    ```
+
+2.  **Run the Application**:
+    Use `docker-compose` to start the application. It will automatically handle mapping the necessary ports and data folders.
+
+    ```bash
+    docker-compose up
+    ```
+
+3.  **Access the UI**:
+    Open your web browser and navigate to:
+    **[http://localhost:8501](http://localhost:8501)**
+
+4.  **Stopping the Application**:
+    To stop the application, press `Ctrl+C` in the terminal, and then run:
+
+    ```bash
+    docker-compose down
+    ```
+
+> **Note:** The Docker setup is configured to use the `.mlruns` and `.registry` folders from the directory where you run the `docker-compose up` command. Ensure you run it from your project's root directory to see your experiment data.
