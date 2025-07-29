@@ -24,6 +24,11 @@ def main():
     print("  You can now view your app in your browser.", flush=True)
     print("  URL: http://localhost:8501", flush=True)
     print("="*50 + "\n", flush=True)
+
+    # Redirect stdout and stderr to /dev/null to suppress app output
+    devnull = os.open(os.devnull, os.O_WRONLY)
+    os.dup2(devnull, sys.stdout.fileno())
+    os.dup2(devnull, sys.stderr.fileno())
     
     os.execvp(sys.argv[1], sys.argv[1:])
 
