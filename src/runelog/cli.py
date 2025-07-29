@@ -87,22 +87,20 @@ def list_experiments(ctx: typer.Context):
         console.print("No experiments found.", style="yellow")
         return
 
-    table = Table("ID", "Name", "Runs", "Last Run", "Created At", title="Experiments", expand=True)
-    
+    table = Table(
+        "ID", "Name", "Runs", "Last Run", "Created At", title="Experiments", expand=True
+    )
+
     for summary in summaries:
         exp_id = summary["experiment_id"]
         exp_name = summary.get("name", "—")
         created_at = _fmt_timestamp(summary.get("created_at"))
         num_runs = summary.get("num_runs", 0)
-        last_run = _fmt_timestamp(summary.get("last_run")) if summary.get("last_run") else "—"
-
-        table.add_row(
-            exp_id,
-            exp_name,
-            str(num_runs),
-            last_run,
-            created_at or "—"
+        last_run = (
+            _fmt_timestamp(summary.get("last_run")) if summary.get("last_run") else "—"
         )
+
+        table.add_row(exp_id, exp_name, str(num_runs), last_run, created_at or "—")
 
     console.print(table)
 
@@ -118,8 +116,12 @@ def get_experiment_details(
     tracker = ctx.obj
 
     try:
-        experiment_id = tracker._resolve_experiment_id(experiment_name_or_id)
+        experiment_id, _ = tracker._resolve_experiment_id(experiment_name_or_id)
         experiment = tracker.get_experiment(experiment_id)
+
+        if not experiment:
+            raise exceptions.ExperimentNotFound(experiment_name_or_id)
+
         experiment_name = experiment.get("name", "n/a")
 
         results_df = tracker.load_results(experiment_id)
@@ -138,7 +140,10 @@ def get_experiment_details(
                 col for col in results_df.columns if not col.startswith("param_")
             ]
             table = Table(
-                "Run ID", *metric_columns, title=f"Runs for Experiment {experiment_id}", expand=True
+                "Run ID",
+                *metric_columns,
+                title=f"Runs for Experiment {experiment_id}",
+                expand=True,
             )
 
             for run_id, row_data in results_df.iterrows():
@@ -206,8 +211,8 @@ def export_experiment(
     tracker = ctx.obj
 
     try:
-        exp_id = tracker._resolve_experiment_id(experiment_name_or_id)
-        results_df = tracker.load_results(exp_id)
+        experiment_id, _ = tracker._resolve_experiment_id(experiment_name_or_id)
+        results_df = tracker.load_results(experiment_id)
 
         if results_df.empty:
             console.print(
@@ -217,7 +222,7 @@ def export_experiment(
             return
 
         if not output_path:
-            experiment = tracker.get_experiment(experiment_name_or_id)
+            experiment = tracker.get_or_create_experiment(experiment_name_or_id)
             exp_name = experiment.get(
                 "name", f"experiment_{experiment_name_or_id}"
             ).replace(" ", "_")
@@ -228,6 +233,34 @@ def export_experiment(
         console.print(
             f"Successfully exported {len(results_df)} runs to '[bold green]{output_path}[/bold green]'."
         )
+
+    except exceptions.ExperimentNotFound as e:
+        console.print(f"Error: {e}", style="bold red")
+        raise typer.Exit(1)
+
+
+@experiments_app.command("delete")
+def delete_experiment(
+    ctx: typer.Context,
+    experiment_name_or_id: str = typer.Argument(
+        ..., help="The name or ID of the experiment to delete."
+    ),
+):
+    """Delete an experiment and all of its associated runs."""
+    tracker = ctx.obj
+
+    try:
+        if typer.confirm(
+            f"Are you sure you want to delete the experiment '{experiment_name_or_id}'? "
+            "This action cannot be undone."
+        ):
+            tracker.delete_experiment(experiment_name_or_id)
+            console.print(
+                f"Experiment '{experiment_name_or_id}' has been deleted.",
+                style="bold red",
+            )
+        else:
+            console.print("Operation cancelled.")
 
     except exceptions.ExperimentNotFound as e:
         console.print(f"Error: {e}", style="bold red")
@@ -263,7 +296,7 @@ def list_runs(
             "Run ID",
             *metric_columns,
             title=f"Runs for Experiment {experiment_name_or_id}",
-            expand=True
+            expand=True,
         )
 
         for run_id, row_data in results_df.iterrows():
@@ -482,7 +515,7 @@ def list_registered_models(
             "Registered On",
             "Tags",
             title="Models in Registry",
-            expand=True
+            expand=True,
         )
 
         for name in model_names:
@@ -541,7 +574,7 @@ def list_registered_model_versions(
             "Source Run ID",
             "Tags",
             title=f"Versions for [bold cyan]{model_name}[/bold cyan]",
-            expand=True
+            expand=True,
         )
 
         for version_info in versions:
@@ -737,6 +770,7 @@ def sweep(
 
 
 # Utils
+
 
 def _fmt_timestamp(ts):
     if isinstance(ts, str):
