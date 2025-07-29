@@ -78,31 +78,42 @@ def main_callback(
 
 
 @experiments_app.command("list")
-def list_experiments(ctx: typer.Context):
+def list_experiments(
+    ctx: typer.Context,
+    sort_by: Optional[str] = typer.Option(
+        None,
+        "--sort-by",
+        "-s",
+        help="Field to sort by (e.g., 'name', 'num_runs', 'last_run').",
+    ),
+    descending: bool = typer.Option(
+        False, "--desc", "-d", help="Sort in descending order."
+    ),
+):
     """List all available experiments."""
     tracker = ctx.obj
-    summaries = tracker.get_experiment_summaries()
+    summaries = tracker.get_experiment_summaries(
+        sort_by=sort_by, ascending=not descending
+    )
 
     if not summaries:
         console.print("No experiments found.", style="yellow")
         return
 
-    table = Table("ID", "Name", "Runs", "Last Run", "Created At", title="Experiments", expand=True)
-    
+    table = Table(
+        "ID", "Name", "Runs", "Last Run", "Created At", title="Experiments", expand=True
+    )
+
     for summary in summaries:
         exp_id = summary["experiment_id"]
         exp_name = summary.get("name", "—")
         created_at = _fmt_timestamp(summary.get("created_at"))
         num_runs = summary.get("num_runs", 0)
-        last_run = _fmt_timestamp(summary.get("last_run")) if summary.get("last_run") else "—"
-
-        table.add_row(
-            exp_id,
-            exp_name,
-            str(num_runs),
-            last_run,
-            created_at or "—"
+        last_run = (
+            _fmt_timestamp(summary.get("last_run")) if summary.get("last_run") else "—"
         )
+
+        table.add_row(exp_id, exp_name, str(num_runs), last_run, created_at or "—")
 
     console.print(table)
 
@@ -111,7 +122,16 @@ def list_experiments(ctx: typer.Context):
 def get_experiment_details(
     ctx: typer.Context,
     experiment_name_or_id: str = typer.Argument(
-        ..., help="The ID of the experiment to retrieve."
+        ..., help="The ID or name of the experiment to retrieve."
+    ),
+    sort_by: Optional[str] = typer.Option(
+        None,
+        "--sort-by",
+        "-s",
+        help="Metric or param to sort runs by (e.g., 'accuracy', 'param_lr').",
+    ),
+    descending: bool = typer.Option(
+        False, "--desc", "-d", help="Sort runs in descending order."
     ),
 ):
     """Get details for a specific experiment."""
@@ -122,7 +142,9 @@ def get_experiment_details(
         experiment = tracker.get_experiment(experiment_id)
         experiment_name = experiment.get("name", "n/a")
 
-        results_df = tracker.load_results(experiment_id)
+        results_df = tracker.load_results(
+            experiment_id, sort_by=sort_by, ascending=not descending
+        )
 
         summary_panel = Panel(
             f"[bold]Name[/bold]: {experiment_name}\n"
@@ -138,7 +160,10 @@ def get_experiment_details(
                 col for col in results_df.columns if not col.startswith("param_")
             ]
             table = Table(
-                "Run ID", *metric_columns, title=f"Runs for Experiment {experiment_id}", expand=True
+                "Run ID",
+                *metric_columns,
+                title=f"Runs for Experiment {experiment_id}",
+                expand=True,
             )
 
             for run_id, row_data in results_df.iterrows():
@@ -241,13 +266,24 @@ def export_experiment(
 def list_runs(
     ctx: typer.Context,
     experiment_name_or_id: str = typer.Argument(
-        ..., help="The ID of the experiment whose runs you want to list."
+        ..., help="The ID or name of the experiment whose runs you want to list."
+    ),
+    sort_by: Optional[str] = typer.Option(
+        None,
+        "--sort-by",
+        "-s",
+        help="Metric or param to sort by (e.g., 'accuracy', 'param_lr').",
+    ),
+    descending: bool = typer.Option(
+        False, "--desc", "-d", help="Sort in descending order."
     ),
 ):
     """List all runs and their metrics for a given experiment."""
     tracker = ctx.obj
     try:
-        results_df = tracker.load_results(experiment_name_or_id)
+        results_df = tracker.load_results(
+            experiment_name_or_id, sort_by=sort_by, ascending=not descending
+        )
 
         if results_df.empty:
             console.print(
@@ -263,7 +299,7 @@ def list_runs(
             "Run ID",
             *metric_columns,
             title=f"Runs for Experiment {experiment_name_or_id}",
-            expand=True
+            expand=True,
         )
 
         for run_id, row_data in results_df.iterrows():
@@ -465,6 +501,12 @@ def register_model(
 @registry_app.command("list")
 def list_registered_models(
     ctx: typer.Context,
+    sort_by: Optional[str] = typer.Option(
+        "timestamp", "--sort-by", "-s", help="Sort by 'name', 'version', or 'timestamp'."
+    ),
+    descending: bool = typer.Option(
+        True, "--desc", "-d", help="Sort in descending order."
+    ),
 ):
     """List all models in the registry."""
     tracker = ctx.obj
@@ -475,6 +517,29 @@ def list_registered_models(
         if not model_names:
             console.print("No models found in the registry.", style="yellow")
             return
+        
+        all_models_data = []
+        for name in model_names:
+            versions = tracker.get_model_versions(name)
+            if versions:
+                all_models_data.append(versions[0])
+
+        sort_key_map = {
+            "name": "model_name",
+            "version": "version",
+            "timestamp": "registration_timestamp",
+        }
+        actual_sort_key = sort_key_map.get(sort_by, "model_name")
+
+        if actual_sort_key == "version":
+            all_models_data.sort(
+                key=lambda x: int(x.get(actual_sort_key, 0)), reverse=not descending
+            )
+        else:
+            all_models_data.sort(
+                key=lambda x: str(x.get(actual_sort_key, "")).lower(),
+                reverse=not descending,
+            )
 
         table = Table(
             "Model Name",
@@ -482,29 +547,20 @@ def list_registered_models(
             "Registered On",
             "Tags",
             title="Models in Registry",
-            expand=True
+            expand=True,
         )
 
-        for name in model_names:
-            versions = tracker.get_model_versions(name)
-            if not versions:
-                # Unlikely but just in case
-                table.add_row(name, "N/A", "N/A", "No versions found")
-                continue
-
-            latest_version = versions[0]
-
-            # Format timestamp and tags
-            timestamp = datetime.fromisoformat(
-                latest_version.get("registration_timestamp", "")
-            ).strftime("%Y-%m-%d %H:%M")
-            tags = latest_version.get("tags", {})
+        for data in all_models_data:
+            timestamp = _fmt_timestamp(data.get("registration_timestamp"))
+            tags = data.get("tags", {})
             tag_str = (
                 ", ".join([f"{k}={v}" for k, v in tags.items()]) if tags else "none"
             )
-
             table.add_row(
-                name, latest_version.get("version", "N/A"), timestamp, tag_str
+                data.get("model_name", "N/A"),
+                data.get("version", "N/A"),
+                timestamp,
+                tag_str,
             )
 
         console.print(table)
@@ -521,12 +577,26 @@ def list_registered_model_versions(
         ...,
         help="The name of the registered model. Use '[bold cyan]runelog registry list[/bold cyan]' to see options.",
     ),
+    sort_by: Optional[str] = typer.Option(
+        "version",
+        "--sort-by",
+        "-s",
+        help="Field to sort by (e.g., 'version', 'registration_timestamp').",
+    ),
+    ascending: bool = typer.Option(
+        True,
+        "--desc",
+        "-d",
+        help="Sort in ascending order. Defaults to true (newest first).",
+    ),
 ):
     """List all versions of a model in the registry."""
     tracker = ctx.obj
 
     try:
-        versions = tracker.get_model_versions(model_name=model_name)
+        versions = tracker.get_model_versions(
+            model_name=model_name, sort_by=sort_by, ascending=ascending
+        )
 
         if not versions:
             console.print(
@@ -541,7 +611,7 @@ def list_registered_model_versions(
             "Source Run ID",
             "Tags",
             title=f"Versions for [bold cyan]{model_name}[/bold cyan]",
-            expand=True
+            expand=True,
         )
 
         for version_info in versions:
@@ -737,6 +807,7 @@ def sweep(
 
 
 # Utils
+
 
 def _fmt_timestamp(ts):
     if isinstance(ts, str):

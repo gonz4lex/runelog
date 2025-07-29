@@ -127,11 +127,10 @@ def run_sweep(config_path: str, progress_handler=None):
             run_params = {
                 "run_config_id": run_id_str,
                 "model_class": run_config.get("model_class"),
-                "validation_strategy": config.get("validation", {}).get("strategy")
+                "validation_strategy": config.get("validation", {}).get("strategy"),
             }
             model_params = run_config.get("model_params", {})
             all_params = {**run_params, **model_params}
-
 
             for key, value in all_params.items():
                 tracker.log_param(key, value)
