@@ -810,6 +810,7 @@ def sweep(
 
 
 def _fmt_timestamp(ts):
+    """Helper function to format timestamps."""
     if isinstance(ts, str):
         try:
             ts = datetime.fromisoformat(ts)
