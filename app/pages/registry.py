@@ -1,10 +1,24 @@
-# pages/registry.py
+"""
+Streamlit page for viewing and exploring the Model Registry.
+
+This page provides a two-column layout to select a registered model and view
+all of its version details, including tags, source run info, metrics, and
+parameters.
+"""
 
 import streamlit as st
-from runelog import Tracker
-from app.components import display_version_details
 
-tracker = Tracker()
+from runelog import get_tracker
+from app.components import display_version_details, render_sidebar
+
+st.set_page_config(
+    page_title="📚 Registry | Runelog",
+    layout="wide"
+)
+
+render_sidebar()
+
+tracker = get_tracker()
 
 registered_models = tracker.list_registered_models()
 
