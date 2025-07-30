@@ -1,0 +1,33 @@
+name: Build and Deploy Docs
+
+on:
+  push:
+    branches: [main, develop]
+
+permissions:
+  contents: write
+
+jobs:
+  build-and-deploy:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v3
+
+      - name: Set up Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: '3.x'
+
+      - name: Install dependencies
+        run: |
+          pip install mkdocs
+          pip install mkdocs-material
+          pip install mkdocstrings[python]
+          pip install pymdown-extensions
+
+      - name: Deploy MkDocs to GitHub Pages
+        env:
+            PYTHONPATH: src
+        run: mkdocs gh-deploy --force

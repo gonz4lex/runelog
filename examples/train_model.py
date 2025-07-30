@@ -3,12 +3,12 @@ from sklearn.model_selection import train_test_split
 from sklearn.datasets import make_classification
 from sklearn.metrics import accuracy_score
 
-from runelog import Tracker
+from runelog import get_tracker
 
 
 def main():
-    # Initialize the Tracker
-    tracker = Tracker()
+    # Initialize the tracker
+    tracker = get_tracker()
 
     # Create (or retrieve) an experiment
     experiment_id = tracker.get_or_create_experiment("example-train-model")
