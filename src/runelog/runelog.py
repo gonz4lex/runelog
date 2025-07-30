@@ -100,6 +100,21 @@ class RuneLog:
                     experiments.append(meta)
         return experiments
 
+    def delete_experiment(self, experiment_name_or_id: str) -> None:
+        """Deletes an experiment and all of its associated runs and artifacts.
+        This is a destructive operation and cannot be undone.
+
+        Args:
+            experiment_name_or_id (str): The name or ID of the experiment to delete.
+
+        Raises:
+            exceptions.ExperimentNotFound: If no experiment with the given
+                name or ID is found.
+        """
+        _, experiment_path = self._resolve_experiment_id(experiment_name_or_id)
+
+        shutil.rmtree(experiment_path)
+
     @contextmanager
     def start_run(self, experiment_id: str = "0") -> Generator[str, None, None]:
         """Starts a new run within an experiment as a context manager.
@@ -187,6 +202,7 @@ class RuneLog:
 
         return {"params": params, "metrics": metrics, "artifacts": artifacts}
 
+ 
     def get_experiment_runs(
         self, experiment_id: str, sort_by: Optional[str] = None, ascending: bool = True
     ) -> List[Dict]:
@@ -445,12 +461,15 @@ class RuneLog:
         Raises:
             exceptions.ExperimentNotFound: If no matching experiment is found.
         """
-        if os.path.isdir(os.path.join(self._mlruns_dir, name_or_id)):
-            return name_or_id
+        path = os.path.join(self._mlruns_dir, name_or_id)
+        if os.path.isdir(path):
+            return name_or_id, path
 
         for experiment in self.list_experiments():
             if experiment.get("name") == name_or_id:
-                return experiment["experiment_id"]
+                exp_id = experiment["experiment_id"]
+                path = os.path.join(self._mlruns_dir, exp_id)
+                return exp_id, path
 
         raise exceptions.ExperimentNotFound(name_or_id)
 
@@ -477,10 +496,9 @@ class RuneLog:
             exceptions.ExperimentNotFound: If no experiment with the given ID
                 is found.
         """
-        import pandas as pd
-
-        experiment_id = self._resolve_experiment_id(experiment_name_or_id)
-        experiment_path = os.path.join(self._mlruns_dir, experiment_id)
+        experiment_id, experiment_path = self._resolve_experiment_id(
+            experiment_name_or_id
+        )
         if not os.path.exists(experiment_path):
             raise exceptions.ExperimentNotFound(experiment_id)
 

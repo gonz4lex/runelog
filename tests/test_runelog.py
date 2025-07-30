@@ -219,3 +219,21 @@ def test_get_run_details_for_nonexistent_run(tracker):
     """
     # This assumes you might later change this to raise a RunNotFound exception
     assert tracker.get_run_details("nonexistent_run_id") is None
+
+
+def test_delete_experiment_success(tracker):
+    """Tests that a specific experiment can be successfully deleted."""
+    exp_name = "experiment-to-delete"
+    exp_id = tracker.get_or_create_experiment(exp_name)
+    exp_path = os.path.join(tracker._mlruns_dir, exp_id)
+    assert os.path.exists(exp_path)
+
+    tracker.delete_experiment(exp_name)
+
+    assert not os.path.exists(exp_path)
+
+
+def test_delete_nonexistent_experiment_raises_error(tracker):
+    """Tests that deleting a non-existent experiment raises an error."""
+    with pytest.raises(exceptions.ExperimentNotFound):
+        tracker.delete_experiment("nonexistent-experiment")

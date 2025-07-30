@@ -138,8 +138,12 @@ def get_experiment_details(
     tracker = ctx.obj
 
     try:
-        experiment_id = tracker._resolve_experiment_id(experiment_name_or_id)
+        experiment_id, _ = tracker._resolve_experiment_id(experiment_name_or_id)
         experiment = tracker.get_experiment(experiment_id)
+
+        if not experiment:
+            raise exceptions.ExperimentNotFound(experiment_name_or_id)
+
         experiment_name = experiment.get("name", "n/a")
 
         results_df = tracker.load_results(
@@ -231,8 +235,8 @@ def export_experiment(
     tracker = ctx.obj
 
     try:
-        exp_id = tracker._resolve_experiment_id(experiment_name_or_id)
-        results_df = tracker.load_results(exp_id)
+        experiment_id, _ = tracker._resolve_experiment_id(experiment_name_or_id)
+        results_df = tracker.load_results(experiment_id)
 
         if results_df.empty:
             console.print(
@@ -242,7 +246,7 @@ def export_experiment(
             return
 
         if not output_path:
-            experiment = tracker.get_experiment(experiment_name_or_id)
+            experiment = tracker.get_or_create_experiment(experiment_name_or_id)
             exp_name = experiment.get(
                 "name", f"experiment_{experiment_name_or_id}"
             ).replace(" ", "_")
@@ -253,6 +257,34 @@ def export_experiment(
         console.print(
             f"Successfully exported {len(results_df)} runs to '[bold green]{output_path}[/bold green]'."
         )
+
+    except exceptions.ExperimentNotFound as e:
+        console.print(f"Error: {e}", style="bold red")
+        raise typer.Exit(1)
+
+
+@experiments_app.command("delete")
+def delete_experiment(
+    ctx: typer.Context,
+    experiment_name_or_id: str = typer.Argument(
+        ..., help="The name or ID of the experiment to delete."
+    ),
+):
+    """Delete an experiment and all of its associated runs."""
+    tracker = ctx.obj
+
+    try:
+        if typer.confirm(
+            f"Are you sure you want to delete the experiment '{experiment_name_or_id}'? "
+            "This action cannot be undone."
+        ):
+            tracker.delete_experiment(experiment_name_or_id)
+            console.print(
+                f"Experiment '{experiment_name_or_id}' has been deleted.",
+                style="bold red",
+            )
+        else:
+            console.print("Operation cancelled.")
 
     except exceptions.ExperimentNotFound as e:
         console.print(f"Error: {e}", style="bold red")
