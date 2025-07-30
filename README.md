@@ -5,18 +5,16 @@
 [![Ask DeepWiki](https://deepwiki.com/badge.svg)](https://deepwiki.com/gonz4lex/runelog)
 [![Docs](https://github.com/gonz4lex/runelog/actions/workflows/deploy-docs.yml/badge.svg)](https://github.com/gonz4lex/runelog/actions/workflows/deploy-docs.yml)
 
-<!-- [![License](https://img.shields.io/pypi/l/runelog.svg)](https://opensource.org/licenses/MIT) -->
 <!-- [![PyPI version](https://badge.fury.io/py/runelog.svg)](https://badge.fury.io/py/runelog) -->
 
 ## Lightweight ML Tracker
 
 A simple, file-based Python library for tracking machine learning experiments, inspired by MLflow.
 
-**Current Status**: In active development. The core API is functional but subject to change.
+**RuneLog is in active development**. The core API is functional but subject to change.
 
 The name *RuneLog* is a play on words. It evokes the common `run.log()` command used to log an experiment in tracking systems, while also treating these powerful, and sometimes mysterious, models as modern-day mystical writings: a "log of runes".
 
----
 
 ##  Why Runelog?
 
@@ -104,7 +102,8 @@ Run it:
 python examples/minimal_tracking.py
 ```
 ---
-#### Features
+
+### Features
 - ✅ **Core Tracking API**: Experiments, runs, parameters, metrics.
 - ✅ **Artifact Logging**: Save model files, plots, and other artifacts.
 - ✅ **Model Registry**: Version and tag models.
@@ -119,29 +118,21 @@ The easiest way to run the Runelog web UI without setting up a local Python envi
 
 #### Instructions
 
-1.  **Build the Docker Image**:
-    From the root of the project directory, run the following command once to build the application image.
-
+1.  Build the Docker image from the root of the project directory:
     ```bash
     docker build -t runelog-app .
     ```
 
-2.  **Run the Application**:
-    Use `docker-compose` to start the application. It will automatically handle mapping the necessary ports and data folders.
-
+2.  Use `docker-compose` to start the application:
     ```bash
     docker-compose up
     ```
 
-3.  **Access the UI**:
-    Open your web browser and navigate to:
+3.  To access the UI, open your web browser and navigate to:
     **[http://localhost:8501](http://localhost:8501)**
 
-4.  **Stopping the Application**:
-    To stop the application, press `Ctrl+C` in the terminal, and then run:
-
+4.  To stop the application, press `Ctrl+C` in the terminal, and then run:
     ```bash
     docker-compose down
     ```
 
-> **Note:** The Docker setup is configured to use the `.mlruns` and `.registry` folders from the directory where you run the `docker-compose up` command. Ensure you run it from your project's root directory to see your experiment data.
