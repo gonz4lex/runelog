@@ -202,11 +202,17 @@ class RuneLog:
 
         return {"params": params, "metrics": metrics, "artifacts": artifacts}
 
-    def get_experiment_runs(self, experiment_id: str) -> List[Dict]:
+ 
+    def get_experiment_runs(
+        self, experiment_id: str, sort_by: Optional[str] = None, ascending: bool = True
+    ) -> List[Dict]:
         """Return a list of individual runs for the given experiment.
 
         Args:
             experiment_id (str): The ID of the experiment to query.
+            sort_by (Optional[str], optional): Field to sort runs by (e.g., "timestamp").
+                Defaults to "timestamp". Set to None to disable sorting.
+            ascending (bool, optional): Sort order. Defaults to True.
 
         Returns:
             List[Dict]: A list of run dictionaries, each containing:
@@ -246,13 +252,22 @@ class RuneLog:
                     }
                     runs.append(run_data)
 
-        runs.sort(key=lambda x: x.get("timestamp") or "", reverse=True)
+        if sort_by:
+            runs.sort(key=lambda x: x.get(sort_by, ""), reverse=not ascending)
+
         return runs
 
-    def get_experiment_summaries(self) -> List[Dict]:
+    def get_experiment_summaries(
+        self, sort_by: Optional[str] = None, ascending: bool = True
+    ) -> List[Dict]:
         """Obtain summaries for all experiments, including run statistics:
         number of runs, the timestamp of the most recent run, and the creation time
         of the experiment.
+
+        Args:
+            sort_by (Optional[str], optional): Field to sort summaries by
+                (e.g., "name", "num_runs", "last_run"). Defaults to None (no sorting).
+            ascending (bool, optional): Sort order. Defaults to True.
 
         Returns:
             List[Dict]: A list of dictionaries, each representing a summarized view
@@ -302,6 +317,8 @@ class RuneLog:
                     "last_run": last_run,
                 }
             )
+        if sort_by:
+            summaries.sort(key=lambda x: x.get(sort_by) or "", reverse=not ascending)
 
         return summaries
 
@@ -369,7 +386,7 @@ class RuneLog:
         """
         run_path = self._get_run_path()
         model_path = os.path.join(run_path, "artifacts", name)
-        joblib.dump(model, model_path)
+        joblib.dump(model, model_path, compress=compress)
 
     # Reading
 
@@ -456,11 +473,19 @@ class RuneLog:
 
         raise exceptions.ExperimentNotFound(name_or_id)
 
-    def load_results(self, experiment_name_or_id: str) -> pd.DataFrame:
+    def load_results(
+        self,
+        experiment_name_or_id: str,
+        sort_by: Optional[str] = None,
+        ascending: bool = True,
+    ) -> pd.DataFrame:
         """Loads all run data from an experiment into a pandas DataFrame.
 
         Args:
-            experiment_id (str): The ID of the experiment to load.
+            experiment_name_or_id (str): The ID of the experiment to load.
+            sort_by (Optional[str], optional): Column to sort the DataFrame by.
+                Defaults to None (sort by run_id index).
+            ascending (bool, optional): Sort order. Defaults to True.
 
         Returns:
             pd.DataFrame: A DataFrame containing the parameters and metrics
@@ -488,7 +513,14 @@ class RuneLog:
         if not all_runs_data:
             return pd.DataFrame()
 
-        return pd.DataFrame(all_runs_data).set_index("run_id").sort_index()
+        df = pd.DataFrame(all_runs_data).set_index("run_id")
+
+        if sort_by and sort_by in df.columns:
+            df.sort_values(by=sort_by, ascending=ascending, inplace=True)
+        else:
+            df.sort_index(inplace=True)
+
+        return df
 
     # Model Registry
 
@@ -652,7 +684,7 @@ class RuneLog:
             meta = json.load(f)
             return meta.get("tags", {})
 
-    def list_registered_models(self) -> List[str]:
+    def list_registered_models(self, ascending: bool = True) -> List[str]:
         """Lists the names of all models in the registry.
 
         Returns:
@@ -662,19 +694,30 @@ class RuneLog:
             return []
 
         # Returns a list of model names (directory names)
-        return [
+        model_names = [
             d
             for d in os.listdir(self._registry_dir)
             if os.path.isdir(os.path.join(self._registry_dir, d))
         ]
+        model_names.sort(reverse=not ascending)
 
-    def get_model_versions(self, model_name: str) -> List[Dict]:
+        return model_names
+
+    def get_model_versions(
+        self,
+        model_name: str,
+        sort_by: Optional[str] = "version",
+        ascending: bool = False,
+    ) -> List[Dict]:
         """Gets all versions and their metadata for a registered model.
 
         The versions are returned sorted from newest to oldest.
 
         Args:
             model_name (str): The name of the model to retrieve versions for.
+            sort_by (Optional[str], optional): Field to sort by (e.g., "version",
+                "registration_timestamp"). Sorted by 'version' by default.
+            ascending (bool, optional): Sort order. Defaults to True (newest first).
 
         Returns:
             List[Dict]: A list of metadata dictionaries, where each dictionary
@@ -688,13 +731,21 @@ class RuneLog:
         versions_data = []
         versions = [d for d in os.listdir(model_path) if d.isdigit()]
 
-        for version in sorted(versions, key=int, reverse=True):  # Show latest first
-            version_path = os.path.join(model_path, version)
-            meta_path = os.path.join(version_path, "meta.json")
+        for version in versions:
+            meta_path = os.path.join(model_path, version, "meta.json")
             if os.path.exists(meta_path):
                 with open(meta_path, "r") as f:
-                    meta = json.load(f)
-                    versions_data.append(meta)
+                    versions_data.append(json.load(f))
+
+        if sort_by:
+            if sort_by == "version":
+                versions_data.sort(
+                    key=lambda x: int(x.get("version", 0)), reverse=not ascending
+                )
+            else:
+                versions_data.sort(
+                    key=lambda x: str(x.get(sort_by, "")), reverse=not ascending
+                )
 
         return versions_data
 
