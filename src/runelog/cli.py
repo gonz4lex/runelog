@@ -3,6 +3,7 @@ from rich.console import Console
 from rich.table import Table
 from rich.panel import Panel
 
+import runelog
 from runelog import get_tracker, exceptions
 from runelog.runner import run_sweep
 
@@ -28,8 +29,12 @@ ASCII_ART = """
 
    """
 
+
 HEADER = Panel(
-    ASCII_ART, style="bold cyan", border_style="dim", title="[dim]v0.1.0[/dim]"
+    ASCII_ART,
+    style="bold cyan",
+    border_style="dim",
+    title=f"[dim]v{runelog.__version__}[/dim]",
 )
 
 # Main app and subcommands
@@ -384,6 +389,26 @@ def get_run_details(
     console.print(metric_table)
 
 
+@runs_app.command("delete")
+def delete_run(
+    ctx: typer.Context,
+    run_id: str = typer.Argument(..., help="The ID of the run to delete."),
+):
+    """Delete a run and all of its associated artifacts."""
+    tracker = ctx.obj
+    if typer.confirm(
+        f"Are you sure you want to delete run '{run_id}'? This action cannot be undone."
+    ):
+        try:
+            tracker.delete_run(run_id)
+            console.print(f"Run '{run_id}' has been deleted.", style="bold red")
+        except exceptions.RunNotFound as e:
+            console.print(f"Error: {e}", style="bold red")
+            raise typer.Exit(1)
+    else:
+        console.print("Operation cancelled.", style="bold yellow")
+
+
 @runs_app.command("download-artifact")
 def download_artifact(
     ctx: typer.Context,
@@ -534,7 +559,10 @@ def register_model(
 def list_registered_models(
     ctx: typer.Context,
     sort_by: Optional[str] = typer.Option(
-        "timestamp", "--sort-by", "-s", help="Sort by 'name', 'version', or 'timestamp'."
+        "timestamp",
+        "--sort-by",
+        "-s",
+        help="Sort by 'name', 'version', or 'timestamp'.",
     ),
     descending: bool = typer.Option(
         True, "--desc", "-d", help="Sort in descending order."
@@ -549,7 +577,7 @@ def list_registered_models(
         if not model_names:
             console.print("No models found in the registry.", style="yellow")
             return
-        
+
         all_models_data = []
         for name in model_names:
             versions = tracker.get_model_versions(name)
