@@ -13,10 +13,10 @@ A simple, file-based Python library for tracking machine learning experiments, i
 
 **RuneLog is in active development**. The core API is functional but subject to change.
 
-The name *RuneLog* is a play on words. It evokes the common `run.log()` command used to log an experiment in tracking systems, while also treating these powerful, and sometimes mysterious, models as modern-day mystical writings: a "log of runes".
+The name *RuneLog* is a play on words. It's reminiscent of the common `run.log()` command used to log an experiment in tracking systems, while also treating these powerful, and sometimes mysterious, models as modern-day mystical writings: a "log of runes".
 
 
-##  Why Runelog?
+##  Why RuneLog?
 
 - **Zero-Overhead Setup**: start tracking runs in a single line
 - **Local-First, Lightweight**: perfect for solo devs or small teams
@@ -28,7 +28,7 @@ The name *RuneLog* is a play on words. It evokes the common `run.log()` command 
 
 This is the recommended way to install `runelog` if you just want to use it in your projects.
 
-1. Make sure you have Python 3.8+ installed.
+1. Make sure you have Python 3.10+ installed.
 2. Install the library from PyPI using pip:
 
 ```bash
@@ -36,26 +36,6 @@ pip install runelog
 ```
 
 That's it! You can now import it into your Python scripts.
-
-### Development Setup
-
-1. **Clone the repository**:
-
-```bash
-git clone https://github.com/gonz4lex/runelog.git
-cd runelog
-```
-2. **Create and activate a virtual environment**:
-
-```bash
-python3 -m venv .venv
-source .venv/bin/activate  # On Windows: .venv\Scripts\activate
-```
-3. **Install dependencies**:
-
-```bash
-pip install -r requirements.txt
-```
 
 #### Quickstart
 
@@ -65,51 +45,123 @@ Start tracking your ML experiments in just a few lines of code:
 from runelog import get_tracker
 
 # 1. Initialize the tracker
-tracker = get_tracker()
+tracker = get_tracker(experiment_name="my-first-experiment")
 
-# 2. Get or create an experiment and start a run
-with tracker.start_run(experiment_name="my-first-experiment"):
-    
+# 2. Start a run
+with tracker.start_run():
     # 3. Your training code and logging calls go here
     tracker.log_metric("accuracy", 0.95)
 ```
 
 Check the detailed [Quickstart Guide](./docs/quickstart.md) for for a complete runnable example.
 
-#### Usage Examples
+### Development Setup
+
+1. Clone the repository:
+
+```bash
+git clone https://github.com/gonz4lex/runelog.git
+cd runelog
+```
+2. Create and activate a virtual environment:
+
+```bash
+python3 -m venv .venv
+source .venv/bin/activate  # On Windows: .venv\Scripts\activate
+```
+3. Install in Editable Mode:
+Install the package and all development dependencies from your pyproject.toml file.
+
+```bash
+pip install -e .[dev]
+```
+
+#### Development Workflow
+
+RuneLog uses **[Hatch](https://hatch.pypa.io/)** to manage dependencies, environments, and scripts.
+
+1. Environment Setup: the primary command to enter a fully configured development environment is `hatch shell`. This will create a virtual environment, install all dependencies listed in `pyproject.toml`, and activate it.
+
+```bash
+hatch shell
+```
+
+2. Formatting Code
+
+RuneLog uses **Black** for automatic code formatting. To format all project files, run the following command:
+
+```bash
+hatch run lint:format
+```
+
+3. Running Tests
+
+The test suite is run using `pytest` and the `test` environment is configured to automatically run tests with coverage:
+
+```bash
+hatch run test
+```
+
+This command is a shortcut for `pytest --cov=src/runelog --cov-report=term-missing --cov-report=xml`.
+
+4. Building the Documentation
+
+To preview the documentation site locally with live reloading, you can add a `docs` environment to your `pyproject.toml`.
+
+```bash
+hatch run docs:serve
+```
+
+5. Building the Package
+
+To build the distributable package files (`.whl` and `.tar.gz`) just run:
+
+```bash
+hatch build
+```
+
+The files will be created in the `dist/` directory, ready for publishing.
+
+
+### Usage Examples
 You can find example scripts in the `examples/ directory`:
 
-`train_model.py`
+#### `train_model.py`
 
 Full pipeline example with:
 * logging parameters and metrics
 * saving and registering models
 * tagging and retrieving models
 
-Run it:
-
 ```bash
-python examples/train_model.py
+python examples/train_model.py  # or use the CLI: runelog examples train
 ```
 
-`minimal_tracking.py`
+#### `minimal_tracking.py`
 
 Minimal working example with only metric logging.
 
-Run it:
+```bash
+python examples/minimal_tracking.py  # or use the CLI: runelog examples minimal
+```
+
+#### `sweep/sweep.py`
+
+Sweep example with configuration file to define runs.
 
 ```bash
-python examples/minimal_tracking.py
+python examples/sweep/sweep.py # or use the CLI: runelog examples sweep
 ```
+
 ---
 
 ### Features
-- ✅ **Core Tracking API**: Experiments, runs, parameters, metrics.
-- ✅ **Artifact Logging**: Save model files, plots, and other artifacts.
-- ✅ **Model Registry**: Version and tag models.
-- ✅ **Streamlit UI**: Interactive dashboard to explore runs and the registry.
-- 🔄 **Command-Line Interface (CLI)**: For programmatic interaction.
-- 🔄 **Full Test Coverage**: Comprehensive unit and integration tests.
+- **Core Tracking API**: Experiments, runs, parameters, metrics.
+- **Artifact Logging**: Save model files, plots, and other artifacts.
+- **Model Registry**: Version and tag models.
+- **Streamlit UI**: Interactive dashboard to explore runs and the registry.
+- **Command-Line Interface (CLI)** for programmatic interaction.
+- **Full Test Coverage**: Comprehensive unit and integration tests.
 
 
 ### 🐳 Running the UI with Docker

@@ -10,6 +10,24 @@ All notable changes to **RuneLog** will be documented in this file.
 
 - Integration with Git metadata (hash, commit time, branch)
 - `runelog serve` command to deploy modfels as a local API
+- Lightweight feature store implementation
+- More visualizations options, i.e. ROC curves, feature importances, confusion matrices
+- Extensible plugin architecture for custom trackers or visualizations
+
+## [0.1.1] - 2025-08-04
+
+### Added
+- The `start_run` method now accepts an `experiment_name` directly, simplifying the most common user workflow.
+- Added `delete_run` method to the core library for better cleanup and management.
+- Added `runs delete` command with interactive confirmation prompts for safety.
+- Improved empty state of the Streamlit UI for fresh runs, showing a brief quickstart when no experiments exist yet.
+
+### Fixed
+- Corrected the development installation instructions in the `README.md` and contribution guides.
+
+### Changed
+- Refactored `pyproject.toml` to use a pure `hatchling` build backend and a new `Hatch` environments for `docs`.
+- Changed usage examples in `examples/` to reflect API changes.
 
 
 ## [0.1.0] – 2025-07-30

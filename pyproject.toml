@@ -59,12 +59,12 @@ runelog = "runelog.cli:app"
 "Homepage" = "https://github.com/gonz4lex/runelog"
 "Bug Tracker" = "https://github.com/gonz4lex/runelog/issues"
 
-[tool.hatch.version]
-path = "src/runelog/__init__.py"
-
 [build-system]
 requires = ["hatchling"]
 build-backend = "hatchling.build"
+
+[tool.hatch.version]
+path = "src/runelog/__init__.py"
 
 [tool.hatch.metadata]
 allow-direct-references = true
@@ -93,3 +93,10 @@ detached = true
 
 [tool.hatch.envs.lint.scripts]
 format = "black src tests"
+
+[tool.hatch.envs.docs]
+features = ["dev"]
+
+[tool.hatch.envs.docs.scripts]
+serve = "mkdocs serve"
+build = "mkdocs build"
