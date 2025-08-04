@@ -9,9 +9,7 @@ from runelog import get_tracker
 def main():
     # Initialize the tracker
     tracker = get_tracker()
-
-    # Create (or retrieve) an experiment
-    experiment_id = tracker.get_or_create_experiment("example-train-model")
+    experiment_name = "example-train-model"
 
     # Define model and hyperparameters
     params = {"C": 1.0, "solver": "liblinear", "random_state": 0}
@@ -26,7 +24,8 @@ def main():
     run_id = None
     model_artifact_name = "model.pkl"
 
-    with tracker.start_run(experiment_id=experiment_id) as active_run_id:
+    # Start tracking
+    with tracker.start_run(experiment_name=experiment_name) as active_run_id:
         run_id = active_run_id
         print(f"Started Run: {run_id}")
 
@@ -42,16 +41,18 @@ def main():
         y_pred = model.predict(X_test)
         accuracy = accuracy_score(y_test, y_pred)
         tracker.log_metric("accuracy", accuracy)
-        print(f"Model accuracy: {accuracy:.4f}")
+        print(f"Logged model accuracy: {accuracy:.4f}")
 
         # Log the trained model as an artifact
-        tracker.log_model(model, "model.pkl")
+        mod_path = "model.pkl"
+        tracker.log_model(model, mod_path)
+        print(f"Logged model artifact: {mod_path}")
 
     print("\nRun finished.")
 
     if run_id:
         # Register a model (with tags)
-        registered_model_name = "customer-churn-model"
+        registered_model_name = "registered-train-example"
         tags = {"status": "candidate", "scope": "global"}
         version = tracker.register_model(
             run_id, model_artifact_name, registered_model_name, tags=tags
@@ -70,7 +71,9 @@ def main():
 
     # Load and display the results for the entire experiment
     print("\n--- Experiment Results ---\n")
-    results_df = tracker.load_results(experiment_id)
+    results_df = tracker.load_results(
+        experiment_name, sort_by="accuracy", ascending=False
+    )
     print(results_df)
 
 

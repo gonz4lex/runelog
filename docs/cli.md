@@ -92,6 +92,14 @@ Displays the detailed parameters, metrics, and artifacts for a specific run.
 runelog runs get <RUN_ID>
 ```
 
+### `runelog runs delete`
+
+Deletes a specific run as well its parameters, metrics, and artifacts.
+
+```bash
+runelog runs delete <RUN_ID>
+```
+
 ### `runelog runs download-artifact`
 
 Downloads an artifact file from a specific run to your local machine.
