@@ -127,6 +127,18 @@ def show_run_details(run_id: str):
 experiments = tracker.list_experiments()
 if not experiments:
     st.info("No experiments found. Run a training script to create one.")
+    st.code(
+        """
+        from runelog import get_tracker
+
+        tracker = get_tracker(experiment_name="my-first-experiment")
+        with tracker.start_run():
+            # Your training code...
+            tracker.log_parameter("learning_rate", 0.01)
+            tracker.log_metric("accuracy", 0.95)
+        """,
+        language="python",
+    )
     st.stop()
 
 experiment_map = {exp["experiment_id"]: exp["name"] for exp in experiments}
