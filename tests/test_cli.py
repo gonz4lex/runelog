@@ -121,6 +121,45 @@ class TestRunsCommands:
         assert result.exit_code == 0
         assert "Error: Run with ID 'nonexistent-run' not found" in result.stdout
 
+    def test_delete_run_success(self, test_tracker):
+        """Tests 'runs delete' with a valid run ID."""
+        exp_id = test_tracker.get_or_create_experiment("test-delete-run-success")
+        with test_tracker.start_run(experiment_id=exp_id) as run_id:
+            pass
+
+        run_path = test_tracker._get_run_path_by_id(run_id)
+        assert os.path.exists(run_path)
+
+        result = runner.invoke(app, ["runs", "delete", run_id], obj=test_tracker, input="y")
+        assert result.exit_code == 0
+        assert f"'{run_id}' has been deleted" in result.stdout
+
+        assert not os.path.exists(run_path)
+
+    def test_delete_run_not_found(self, test_tracker):
+        """Tests that the correct exception is raised if the run doesn't exist."""
+        result = runner.invoke(
+            app, ["runs", "delete", "nonexistent-run"], obj=test_tracker, input="y\n"
+        )
+        assert result.exit_code == 1
+        assert "Error: Run with ID 'nonexistent-run' not found" in result.stdout
+
+    def test_delete_run_cancelled(self, test_tracker):
+        """Tests that the delete operation is cancelled if the user says no."""
+        exp_id = test_tracker.get_or_create_experiment("test-delete-run-cancelled")
+        with test_tracker.start_run(experiment_id=exp_id) as run_id:
+            pass
+        
+        run_path = test_tracker._get_run_path_by_id(run_id)
+        assert os.path.exists(run_path)
+
+        result = runner.invoke(
+            app, ["runs", "delete", run_id], obj=test_tracker, input="n\n"
+        )
+        assert result.exit_code == 0
+        assert "Operation cancelled" in result.stdout
+        assert os.path.exists(run_path)
+
 
 class TestRegistryCommands:
     def test_register_success(self, test_tracker):

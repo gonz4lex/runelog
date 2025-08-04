@@ -237,3 +237,23 @@ def test_delete_nonexistent_experiment_raises_error(tracker):
     """Tests that deleting a non-existent experiment raises an error."""
     with pytest.raises(exceptions.ExperimentNotFound):
         tracker.delete_experiment("nonexistent-experiment")
+
+
+def test_delete_run_success(tracker):
+    """Tests that a specific run can be successfully deleted."""
+    experiment_id = tracker.get_or_create_experiment("test-delete-run")
+    with tracker.start_run(experiment_id=experiment_id) as run_id:
+        pass
+
+    run_path = tracker._get_run_path_by_id(run_id)
+    assert os.path.exists(run_path)
+
+    tracker.delete_run(run_id)
+
+    assert not os.path.exists(run_path)
+
+
+def test_delete_nonexistent_run_raises_error(tracker):
+    """Tests that deleting a non-existent run raises an error."""
+    with pytest.raises(exceptions.RunNotFound):
+        tracker.delete_run("nonexistent-run-id")
