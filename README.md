@@ -45,10 +45,10 @@ Start tracking your ML experiments in just a few lines of code:
 from runelog import get_tracker
 
 # 1. Initialize the tracker
-tracker = get_tracker(experiment_name="my-first-experiment")
+tracker = get_tracker()
 
 # 2. Start a run
-with tracker.start_run():
+with tracker.start_run(experiment_name="my-first-experiment"):
     # 3. Your training code and logging calls go here
     tracker.log_metric("accuracy", 0.95)
 ```
