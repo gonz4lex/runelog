@@ -53,6 +53,18 @@ class RuneLog:
             self._mlruns_dir, self._active_experiment_id, self._active_run_id
         )
 
+    def _get_run_path_by_id(self, run_id: str) -> Optional[str]:
+        """Finds the full path to a run directory from its ID."""
+        for exp_id in os.listdir(self._mlruns_dir):
+            exp_path = os.path.join(self._mlruns_dir, exp_id)
+            if not os.path.isdir(exp_path):
+                continue
+
+            run_path = os.path.join(exp_path, run_id)
+            if os.path.isdir(run_path):
+                return run_path
+        return None
+
     # Experiments and runs
 
     def get_or_create_experiment(self, name: str) -> str:
@@ -116,7 +128,9 @@ class RuneLog:
         shutil.rmtree(experiment_path)
 
     @contextmanager
-    def start_run(self, experiment_id: str = "0") -> Generator[str, None, None]:
+    def start_run(
+        self, experiment_name: str = None, experiment_id: str = "0"
+    ) -> Generator[str, None, None]:
         """Starts a new run within an experiment as a context manager.
 
         Upon entering the 'with' block, a new run is created and marked as
@@ -129,12 +143,17 @@ class RuneLog:
         Yields:
             str: The unique ID of the newly created run.
         """
+        if experiment_name:
+            exp_id = self.get_or_create_experiment(experiment_name)
         # Ensure the default experiment '0' exists
+        elif experiment_id:
+            exp_id = experiment_id
+
         default_experiment_path = os.path.join(self._mlruns_dir, "0")
         if not os.path.exists(default_experiment_path):
             self.get_or_create_experiment("default")
 
-        self._active_experiment_id = experiment_id
+        self._active_experiment_id = exp_id
         self._active_run_id = uuid.uuid4().hex[:8]  # Short unique ID
 
         run_path = self._get_run_path()
@@ -202,7 +221,24 @@ class RuneLog:
 
         return {"params": params, "metrics": metrics, "artifacts": artifacts}
 
- 
+    def delete_run(self, run_id: str) -> None:
+        """Deletes a run and all of its associated artifacts.
+
+        This is a destructive operation and cannot be undone.
+
+        Args:
+            run_id (str): The ID of the run to delete.
+
+        Raises:
+            exceptions.RunNotFound: If no run with the given ID is found.
+        """
+        run_path = self._get_run_path_by_id(run_id)
+
+        if not run_path:
+            raise exceptions.RunNotFound(run_id)
+
+        shutil.rmtree(run_path)
+
     def get_experiment_runs(
         self, experiment_id: str, sort_by: Optional[str] = None, ascending: bool = True
     ) -> List[Dict]:
