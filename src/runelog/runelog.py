@@ -1,8 +1,11 @@
 import os
+import sys
 import json
 import uuid
 import joblib
 import shutil
+import platform
+import subprocess
 from contextlib import contextmanager
 from datetime import datetime
 
@@ -64,6 +67,96 @@ class RuneLog:
             if os.path.isdir(run_path):
                 return run_path
         return None
+
+    def _log_git_metadata(self):
+        """
+        Logs Git metadata to a dedicated source_control.json file in the
+        active run's directory if the root directory is Git repo
+        """
+        try:
+            commit_hash = (
+                subprocess.check_output(["git", "rev-parse", "HEAD"]).strip().decode()
+            )
+            branch_name = (
+                subprocess.check_output(["git", "rev-parse", "--abbrev-ref", "HEAD"])
+                .strip()
+                .decode()
+            )
+            is_dirty = bool(
+                subprocess.check_output(["git", "status", "--porcelain"]).strip()
+            )
+
+            git_meta = {
+                "commit_hash": commit_hash,
+                "branch": branch_name,
+                "is_dirty": is_dirty,
+            }
+
+            meta_path = os.path.join(self._get_run_path(), "source_control.json")
+            with open(meta_path, "w") as f:
+                json.dump(git_meta, f, indent=4)
+        except (subprocess.CalledProcessError, FileNotFoundError):
+            # Fail silently if not in a git repo or git is not installed
+            pass
+
+    def _log_environment(self):
+        """
+        Logs environment info to a structured JSON file and creates a
+        pip-installable requirements.txt artifact.
+        """
+        try:
+            reqs_raw = (
+                subprocess.check_output([sys.executable, "-m", "pip", "freeze"])
+                .decode()
+                .strip()
+            )
+
+            # Installable requirements.txt artifact
+            artifact_path = os.path.join(
+                self._get_run_path(), "artifacts", "requirements.txt"
+            )
+            with open(artifact_path, "w") as f:
+                f.write(reqs_raw)
+
+            # Structured data for the UI
+            packages = {
+                pkg.split("==")[0]: pkg.split("==")[1]
+                for pkg in reqs_raw.split("\n")
+                if "==" in pkg
+            }
+            env_meta = {
+                "python_version": sys.version,
+                "platform": {
+                    "system": platform.system(),
+                    "release": platform.release(),
+                },
+                "packages": packages,
+            }
+            meta_path = os.path.join(self._get_run_path(), "environment.json")
+            with open(meta_path, "w") as f:
+                json.dump(env_meta, f, indent=4)
+
+        except (subprocess.CalledProcessError, FileNotFoundError):
+            pass
+
+    def _log_source_code(self):
+        """
+        (Private) Detects the executing script and logs it as an artifact.
+        Warns the user if run in an interactive environment like a Jupyter notebook.
+        """
+        if 'ipykernel' in sys.modules:
+            import warnings
+            warnings.warn(
+                "Automatic code logging is not supported in interactive environments "
+                "like Jupyter notebooks. Please log your notebook manually using "
+                "tracker.log_artifact('path/to/your/notebook.ipynb')."
+            )
+            return
+
+        script_path = os.path.abspath(sys.argv[0])
+        if os.path.exists(script_path):
+            self.log_artifact(script_path)
+
 
     # Experiments and runs
 
@@ -129,29 +222,53 @@ class RuneLog:
 
     @contextmanager
     def start_run(
-        self, experiment_name: str = None, experiment_id: str = "0"
+        self,
+        experiment_name: str = None,
+        experiment_id: str = "0",
+        log_git_meta: bool = True,
+        log_env: bool = False,
+        log_code: bool = True,
     ) -> Generator[str, None, None]:
         """Starts a new run within an experiment as a context manager.
 
-        Upon entering the 'with' block, a new run is created and marked as
-        'RUNNING'. When the block is exited, the run is marked as 'FINISHED'.
+        This is the primary method for creating a new run. It handles run creation,
+        status updates, and can optionally log metadata about the execution
+        environment for reproducibility.
 
         Args:
-            experiment_id (str, optional): The ID of the experiment to create
-                the run in. Defaults to "0" (the default experiment).
+            experiment_name (str, optional): The name of the experiment. If it
+                doesn't exist, it will be created. This takes precedence over
+                `experiment_id`. Defaults to None.
+            experiment_id (str, optional): The ID of the experiment. If neither
+                name nor ID is provided, it defaults to "0" (the "Default"
+                experiment). Defaults to None.
+            log_git_metadata (bool, optional): If True, logs Git metadata
+                (commit hash, branch, dirty status) to a `source_control.json` file.
+                Defaults to True.
+            log_environment (bool, optional): If True, logs the Python environment
+                (version, platform, packages) to `environment.json` and a
+                `requirements.txt` artifact. Defaults to False.
 
         Yields:
             str: The unique ID of the newly created run.
+        
+        Example:
+            >>> tracker = get_tracker()
+            >>> with tracker.start_run(
+            ...     experiment_name="example-experiment",
+            ...     log_environment=True
+            ... ) as run_id:
+            ...     tracker.log_metric("accuracy", 0.95)
         """
         if experiment_name:
             exp_id = self.get_or_create_experiment(experiment_name)
-        # Ensure the default experiment '0' exists
         elif experiment_id:
             exp_id = experiment_id
+        else:
+            exp_id = "0"
 
-        default_experiment_path = os.path.join(self._mlruns_dir, "0")
-        if not os.path.exists(default_experiment_path):
-            self.get_or_create_experiment("default")
+        if exp_id == "0" and not os.path.exists(os.path.join(self._mlruns_dir, "0", "meta.json")):
+            self.get_or_create_experiment("default-experiment")
 
         self._active_experiment_id = exp_id
         self._active_run_id = uuid.uuid4().hex[:8]  # Short unique ID
@@ -165,17 +282,30 @@ class RuneLog:
             "run_id": self._active_run_id,
             "experiment_id": self._active_experiment_id,
             "status": "RUNNING",
-            "timestamp": datetime.now().isoformat(),
+            "start_time": datetime.now().isoformat(),
+            "end_time": None,
         }
         with open(os.path.join(run_path, "meta.json"), "w") as f:
             json.dump(meta, f, indent=4)
 
+        if log_git_meta:
+            self._log_git_metadata()
+        if log_env:
+            self._log_environment()
+        if log_code:
+            self._log_source_code()
+
         try:
             yield self._active_run_id
+
         finally:
             meta["status"] = "FINISHED"
+            meta["end_time"] = datetime.now().isoformat()
+
             with open(os.path.join(run_path, "meta.json"), "w") as f:
                 json.dump(meta, f, indent=4)
+            
+            # Active state clean-up
             self._active_run_id = None
             self._active_experiment_id = None
 

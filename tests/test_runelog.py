@@ -1,6 +1,9 @@
 import pytest
+
 import os
+import sys
 import json
+import subprocess
 
 import pandas as pd
 
@@ -257,3 +260,117 @@ def test_delete_nonexistent_run_raises_error(tracker):
     """Tests that deleting a non-existent run raises an error."""
     with pytest.raises(exceptions.RunNotFound):
         tracker.delete_run("nonexistent-run-id")
+
+
+def test_log_git_metadata_success(tracker, monkeypatch):
+    """
+    Tests that Git metadata is correctly logged for a clean repository.
+    """
+
+    def mock_subprocess(args):
+        if "rev-parse" in args and "--abbrev-ref" in args:
+            return b"mock_branch\n"
+        if "rev-parse" in args and "HEAD" in args:
+            return b"mock_commit_hash\n"
+        if "status" in args:
+            return b""  # empty bytes means a clean repo
+        return b""
+
+    monkeypatch.setattr(subprocess, "check_output", mock_subprocess)
+
+    with tracker.start_run(experiment_name="git-test"):
+        tracker._log_git_metadata()
+
+        meta_path = os.path.join(tracker._get_run_path(), "source_control.json")
+        assert os.path.exists(meta_path)
+        with open(meta_path, "r") as f:
+            data = json.load(f)
+            assert data["commit_hash"] == "mock_commit_hash"
+            assert data["branch"] == "mock_branch"
+            assert data["is_dirty"] is False
+
+
+def test_log_git_metadata_dirty_repo(tracker, monkeypatch):
+    """
+    Tests that the 'is_dirty' flag is set correctly for a dirty repository.
+    """
+
+    def mock_subprocess(args):
+        if "status" in args:
+            return b"M modified_file.py\n"  # non-empty bytes means a dirty repo
+        return b"mock_data\n"
+
+    monkeypatch.setattr(subprocess, "check_output", mock_subprocess)
+
+    with tracker.start_run(experiment_name="git-dirty-test"):
+        tracker._log_git_metadata()
+        meta_path = os.path.join(tracker._get_run_path(), "source_control.json")
+        with open(meta_path, "r") as f:
+            assert json.load(f)["is_dirty"] is True
+
+
+def test_log_environment_success(tracker, monkeypatch):
+    """
+    Tests that environment and package info is correctly logged.
+    """
+    mock_pip_output = b"pandas==1.5.0\nscikit-learn==1.3.0\n"
+
+    def mock_subprocess(args):
+        if "pip" in args and "freeze" in args:
+            return mock_pip_output
+        return b""
+
+    monkeypatch.setattr(subprocess, "check_output", mock_subprocess)
+
+    with tracker.start_run(experiment_name="env-test"):
+        tracker._log_environment()
+
+        json_path = os.path.join(tracker._get_run_path(), "environment.json")
+        assert os.path.exists(json_path)
+        with open(json_path, "r") as f:
+            data = json.load(f)
+            assert "python_version" in data
+            assert data["packages"]["pandas"] == "1.5.0"
+
+        artifact_path = os.path.join(
+            tracker._get_run_path(), "artifacts", "requirements.txt"
+        )
+        assert os.path.exists(artifact_path)
+        with open(artifact_path, "r") as f:
+            assert f.read() == mock_pip_output.decode().strip()
+
+
+def test_log_environment_failure(tracker, monkeypatch):
+    """
+    Tests that the method fails silently if 'pip' command fails.
+    """
+
+    def mock_subprocess_fail(args):
+        raise subprocess.CalledProcessError(1, "pip freeze")
+
+    monkeypatch.setattr(subprocess, "check_output", mock_subprocess_fail)
+
+    with tracker.start_run(experiment_name="env-fail-test"):
+        tracker._log_environment()  # should NOT raise an exception
+
+        json_path = os.path.join(tracker._get_run_path(), "environment.json")
+        artifact_path = os.path.join(
+            tracker._get_run_path(), "artifacts", "requirements.txt"
+        )
+        assert not os.path.exists(json_path)
+        assert not os.path.exists(artifact_path)
+
+
+def test_log_source_code_script(tracker, monkeypatch, tmp_path):
+    """Tests that the executing script is automatically logged as an artifact."""
+    dummy_script_path = tmp_path / "my_test_script.py"
+    dummy_script_path.write_text("print('This is a test script.')")
+    monkeypatch.setattr(sys, "argv", [str(dummy_script_path)])
+
+    with tracker.start_run(
+        experiment_name="code-log-test", log_code=True
+    ) as run_id:
+        pass
+
+    run_details = tracker.get_run_details(run_id)
+    assert "my_test_script.py" in run_details["artifacts"]
