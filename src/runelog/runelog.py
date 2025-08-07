@@ -634,6 +634,31 @@ class RuneLog:
             with open(meta_path, "w") as f:
                 json.dump(dvc_info, f, indent=4)
 
+    def log_input_run(self, name: str, run_id: str):
+        """Logs a dependency on another run, creating a lineage link.
+
+        This is used to connect runs, for example, to specify that a model
+        training run used the output from a specific feature generation run.
+        The information is saved to a `lineage.json` file.
+
+        Args:
+            name (str): A logical name for the input.
+            run_id (str): The unique ID of the run being used as an input.
+        """
+        lineage_path = os.path.join(self._get_run_path(), "lineage.json")
+
+        # Read lineage data if exists
+        lineage_data = {}
+        if os.path.exists(lineage_path):
+            with open(lineage_path, "r") as f:
+                lineage_data = json.load(f)
+
+        # Add or update the new input run
+        lineage_data[name] = run_id
+
+        with open(lineage_path, "w") as f:
+            json.dump(lineage_data, f, indent=4)
+
     # Reading
 
     def get_experiment(self, experiment_id: str) -> Optional[Dict]:
