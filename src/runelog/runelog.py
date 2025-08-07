@@ -4,6 +4,7 @@ import json
 import uuid
 import joblib
 import shutil
+import hashlib
 import platform
 import subprocess
 from contextlib import contextmanager
@@ -144,8 +145,9 @@ class RuneLog:
         (Private) Detects the executing script and logs it as an artifact.
         Warns the user if run in an interactive environment like a Jupyter notebook.
         """
-        if 'ipykernel' in sys.modules:
+        if "ipykernel" in sys.modules:
             import warnings
+
             warnings.warn(
                 "Automatic code logging is not supported in interactive environments "
                 "like Jupyter notebooks. Please log your notebook manually using "
@@ -157,6 +159,14 @@ class RuneLog:
         if os.path.exists(script_path):
             self.log_artifact(script_path)
 
+    def _hash_file(self, file_path: str) -> str:
+        """Calculates the SHA256 hash of a file."""
+        sha256_hash = hashlib.sha256()
+        with open(file_path, "rb") as f:
+            # Read and update hash in chunks to handle large files
+            for byte_block in iter(lambda: f.read(4096), b""):
+                sha256_hash.update(byte_block)
+        return sha256_hash.hexdigest()
 
     # Experiments and runs
 
@@ -251,7 +261,7 @@ class RuneLog:
 
         Yields:
             str: The unique ID of the newly created run.
-        
+
         Example:
             >>> tracker = get_tracker()
             >>> with tracker.start_run(
@@ -267,7 +277,9 @@ class RuneLog:
         else:
             exp_id = "0"
 
-        if exp_id == "0" and not os.path.exists(os.path.join(self._mlruns_dir, "0", "meta.json")):
+        if exp_id == "0" and not os.path.exists(
+            os.path.join(self._mlruns_dir, "0", "meta.json")
+        ):
             self.get_or_create_experiment("default-experiment")
 
         self._active_experiment_id = exp_id
@@ -304,7 +316,7 @@ class RuneLog:
 
             with open(os.path.join(run_path, "meta.json"), "w") as f:
                 json.dump(meta, f, indent=4)
-            
+
             # Active state clean-up
             self._active_run_id = None
             self._active_experiment_id = None
@@ -553,6 +565,30 @@ class RuneLog:
         run_path = self._get_run_path()
         model_path = os.path.join(run_path, "artifacts", name)
         joblib.dump(model, model_path, compress=compress)
+
+    def log_dataset(self, data_path: str, name: str):
+        """Logs the hash and metadata of a dataset file.
+
+        This creates a verifiable "fingerprint" of the data used in a run,
+        ensuring data lineage and reproducibility.
+
+        Args:
+            data_path (str): The local path to the dataset file.
+            name (str): A descriptive name for the dataset.
+        """
+        if not os.path.exists(data_path):
+            raise exceptions.ArtifactNotFound(data_path)
+
+        data_meta = {
+            "name": name,
+            "filename": os.path.basename(data_path),
+            "filesize_bytes": os.path.getsize(data_path),
+            "hash_sha256": self._hash_file(data_path),
+        }
+
+        meta_path = os.path.join(self._get_run_path(), "data_meta.json")
+        with open(meta_path, "w") as f:
+            json.dump(data_meta, f, indent=4)
 
     # Reading
 
