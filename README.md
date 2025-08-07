@@ -127,7 +127,7 @@ The files will be created in the `dist/` directory, ready for publishing.
 
 ## Usage Examples
 
-You can find example scripts in the `examples/ directory`:
+You can find example scripts in the `examples/` directory:
 
 ### `train_model.py`
 
