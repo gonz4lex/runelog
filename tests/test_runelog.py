@@ -483,7 +483,13 @@ def test_log_input_run(tracker):
 
     with open(lineage_path, "r") as f:
         data = json.load(f)
-        assert data["feature_source"] == parent_run_id
+
+        assert isinstance(data, list)
+        assert len(data) == 1
+        
+        assert data[0]["name"] == "feature_source"
+        assert data[0]["run_id"] == parent_run_id
+
 
 def test_log_input_run_multiple_distinct_inputs(tracker):
     """
@@ -498,32 +504,104 @@ def test_log_input_run_multiple_distinct_inputs(tracker):
     with tracker.start_run(experiment_name="multi-input-test") as child_run_id:
         tracker.log_input_run(name="feature_source", run_id=parent_run_1)
         tracker.log_input_run(name="config_source", run_id=parent_run_2)
-    
-    lineage_path = os.path.join(tracker._get_run_path_by_id(child_run_id), "lineage.json")
+
+    lineage_path = os.path.join(
+        tracker._get_run_path_by_id(child_run_id), "lineage.json"
+    )
     assert os.path.exists(lineage_path)
-    
-    with open(lineage_path, 'r') as f:
+
+    with open(lineage_path, "r") as f:
         data = json.load(f)
+
+        assert isinstance(data, list)
         assert len(data) == 2
-        assert data["feature_source"] == parent_run_1
-        assert data["config_source"] == parent_run_2
 
-def test_log_input_run_overwrites_existing_input(tracker):
+        assert data[0]["name"] == "feature_source"
+        assert data[0]["run_id"] == parent_run_1
+
+        assert data[1]["name"] == "config_source"
+        assert data[1]["run_id"] == parent_run_2
+
+
+def test_log_input_run_does_not_overwrite(tracker):
     """
-    Tests that calling log_input_run a second time with the same name
-    correctly updates the value.
+    Tests that calling log_input_run multiple times appends entries
+    to the lineage list, rather than overwriting.
     """
-    with tracker.start_run(experiment_name="overwrite-test") as old_parent_id:
+    with tracker.start_run(experiment_name="test") as parent_1:
         pass
-    with tracker.start_run(experiment_name="overwrite-test") as new_parent_id:
+    with tracker.start_run(experiment_name="test") as parent_2:
         pass
 
-    with tracker.start_run(experiment_name="overwrite-test") as child_run_id:
+    with tracker.start_run(experiment_name="test") as child_run_id:
+        tracker.log_input_run(name="dataset", run_id=parent_1)
+        tracker.log_input_run(name="dataset", run_id=parent_2)  # Append, not overwrite
+
+    lineage_path = os.path.join(
+        tracker._get_run_path_by_id(child_run_id), "lineage.json"
+    )
+    with open(lineage_path, "r") as f:
+        data = json.load(f)
+        assert isinstance(data, list)
+        assert len(data) == 2  # Should now have two entries
+        assert data[0]["run_id"] == parent_1
+        assert data[1]["run_id"] == parent_2
+
+
+def test_log_input_run_appends_on_duplicate_name(tracker):
+    """
+    Tests that calling log_input_run multiple times with the same name
+    correctly appends new entries to the list.
+    """
+    with tracker.start_run(experiment_name="append-test") as old_parent_id:
+        pass
+    with tracker.start_run(experiment_name="append-test") as new_parent_id:
+        pass
+
+    with tracker.start_run(experiment_name="append-test") as child_run_id:
         tracker.log_input_run(name="dataset", run_id=old_parent_id)
-        tracker.log_input_run(name="dataset", run_id=new_parent_id) # Overwrite
+        tracker.log_input_run(name="dataset", run_id=new_parent_id) # Appends
     
     lineage_path = os.path.join(tracker._get_run_path_by_id(child_run_id), "lineage.json")
     with open(lineage_path, 'r') as f:
         data = json.load(f)
-        assert len(data) == 1
-        assert data["dataset"] == new_parent_id
+        
+        assert isinstance(data, list)
+        assert len(data) == 2
+        
+        assert data[0]["run_id"] == old_parent_id
+        assert data[1]["run_id"] == new_parent_id
+
+
+def test_log_input_run_with_artifact_hashing(tracker, tmp_path):
+    """
+    Tests that logging an input run with a specific artifact also logs
+    the artifact's name, hash, and parent experiment ID.
+    """
+    parent_exp_id = tracker.get_or_create_experiment("feature-engineering")
+    dummy_artifact_path = tmp_path / "features.csv"
+    file_content = "feature,target\n1,0"
+    dummy_artifact_path.write_text(file_content)
+    expected_hash = tracker._hash_file(dummy_artifact_path)
+
+    with tracker.start_run(experiment_id=parent_exp_id) as parent_run_id:
+        tracker.log_artifact(str(dummy_artifact_path))
+
+    with tracker.start_run(experiment_name="model-training") as child_run_id:
+        tracker.log_input_run(
+            name="training_features", run_id=parent_run_id, artifact_name="features.csv"
+        )
+
+    lineage_path = os.path.join(
+        tracker._get_run_path_by_id(child_run_id), "lineage.json"
+    )
+    with open(lineage_path, "r") as f:
+        data = json.load(f)
+        assert isinstance(data, list) and len(data) == 1
+
+        input_data = data[0]
+        assert input_data["name"] == "training_features"
+        assert input_data["run_id"] == parent_run_id
+        assert input_data["experiment_id"] == parent_exp_id
+        assert input_data["artifact_name"] == "features.csv"
+        assert input_data["artifact_hash_sha256"] == expected_hash
