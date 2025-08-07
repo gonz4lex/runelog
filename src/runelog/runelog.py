@@ -2,11 +2,13 @@ import os
 import sys
 import json
 import uuid
+import yaml
 import joblib
 import shutil
 import hashlib
 import platform
 import subprocess
+import warnings
 from contextlib import contextmanager
 from datetime import datetime
 
@@ -138,11 +140,12 @@ class RuneLog:
                 json.dump(env_meta, f, indent=4)
 
         except (subprocess.CalledProcessError, FileNotFoundError):
+            # Fails silently
             pass
 
     def _log_source_code(self):
         """
-        (Private) Detects the executing script and logs it as an artifact.
+        Detects the executing script and logs it as an artifact.
         Warns the user if run in an interactive environment like a Jupyter notebook.
         """
         if "ipykernel" in sys.modules:
@@ -252,12 +255,14 @@ class RuneLog:
             experiment_id (str, optional): The ID of the experiment. If neither
                 name nor ID is provided, it defaults to "0" (the "Default"
                 experiment). Defaults to None.
-            log_git_metadata (bool, optional): If True, logs Git metadata
+            log_git_meta (bool, optional): If True, logs Git metadata
                 (commit hash, branch, dirty status) to a `source_control.json` file.
                 Defaults to True.
-            log_environment (bool, optional): If True, logs the Python environment
+            log_env (bool, optional): If True, logs the Python environment
                 (version, platform, packages) to `environment.json` and a
                 `requirements.txt` artifact. Defaults to False.
+            log_code (bool, optional): If True, logs the source code file as an artifact.
+                Defaults to True.
 
         Yields:
             str: The unique ID of the newly created run.
@@ -266,7 +271,7 @@ class RuneLog:
             >>> tracker = get_tracker()
             >>> with tracker.start_run(
             ...     experiment_name="example-experiment",
-            ...     log_environment=True
+            ...     log_env=True
             ... ) as run_id:
             ...     tracker.log_metric("accuracy", 0.95)
         """
@@ -589,6 +594,45 @@ class RuneLog:
         meta_path = os.path.join(self._get_run_path(), "data_meta.json")
         with open(meta_path, "w") as f:
             json.dump(data_meta, f, indent=4)
+
+    def log_dvc_input(self, data_path: str, name: str):
+        """Logs the version hash of a DVC-tracked file.
+
+        This method finds the corresponding .dvc file for the given data path,
+        parses it to find the MD5 hash of the data version, and logs this
+        information to a dedicated `dvc_inputs.json` file in the run directory.
+        This creates a verifiable link between the run and the exact version of the
+        input data.
+
+        Args:
+            data_path (str): The path to the data file tracked by DVC (e.g.,
+                "data/my_data.csv").
+            name (str): A descriptive name for this data input.
+        """
+        dvc_file_path = f"{data_path}.dvc"
+        if not os.path.exists(dvc_file_path):
+            warnings.warn(
+                f"DVC file not found at {dvc_file_path}. Skipping DVC logging."
+            )
+            return
+
+        with open(dvc_file_path, "r") as f:
+            dvc_meta = yaml.safe_load(f)
+
+        # Unique fingerprint for the data version
+        data_hash = dvc_meta.get("outs", [{}])[0].get("md5")
+
+        if data_hash:
+            dvc_info = {
+                "name": name,
+                "path": data_path,
+                "dvc_file": dvc_file_path,
+                "md5_hash": data_hash,
+            }
+
+            meta_path = os.path.join(self._get_run_path(), "dvc_inputs.json")
+            with open(meta_path, "w") as f:
+                json.dump(dvc_info, f, indent=4)
 
     # Reading
 

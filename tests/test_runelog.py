@@ -3,6 +3,7 @@ import pytest
 import os
 import sys
 import json
+import yaml
 import hashlib
 import subprocess
 
@@ -437,3 +438,31 @@ def test_log_dataset_hash_changes_on_modification(tracker, tmp_path):
     assert hash_1 is not None
     assert hash_2 is not None
     assert hash_1 != hash_2
+
+
+def test_log_dvc_input_success(tracker, tmp_path):
+    """Tests that DVC metadata is correctly logged from a .dvc file."""
+    data_path = tmp_path / "data.csv"
+    dvc_file = tmp_path / "data.csv.dvc"
+    mock_hash = "abc123def456"
+    dvc_content = {"outs": [{"md5": mock_hash}]}
+    with open(dvc_file, "w") as f:
+        yaml.dump(dvc_content, f)
+
+    with tracker.start_run(experiment_name="dvc-test") as run_id:
+        tracker.log_dvc_input(str(data_path), name="training_data")
+
+    dvc_json_path = os.path.join(tracker._get_run_path_by_id(run_id), "dvc_inputs.json")
+    assert os.path.exists(dvc_json_path)
+    with open(dvc_json_path, "r") as f:
+        data = json.load(f)
+        assert data["name"] == "training_data"
+        assert data["md5_hash"] == mock_hash
+
+
+def test_log_dvc_input_file_not_found(tracker):
+    """Tests that the method warns but does not fail if no .dvc file is found."""
+    with tracker.start_run(experiment_name="dvc-fail-test"):
+        tracker.log_dvc_input("path/to/nonexistent_data.csv", name="bad_data")
+        dvc_json_path = os.path.join(tracker._get_run_path(), "dvc_inputs.json")
+        assert not os.path.exists(dvc_json_path)
