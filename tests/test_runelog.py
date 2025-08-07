@@ -466,3 +466,64 @@ def test_log_dvc_input_file_not_found(tracker):
         tracker.log_dvc_input("path/to/nonexistent_data.csv", name="bad_data")
         dvc_json_path = os.path.join(tracker._get_run_path(), "dvc_inputs.json")
         assert not os.path.exists(dvc_json_path)
+
+
+def test_log_input_run(tracker):
+    """Tests that run lineage dependencies are correctly logged."""
+    with tracker.start_run(experiment_name="lineage-test") as parent_run_id:
+        pass
+
+    with tracker.start_run(experiment_name="lineage-test") as child_run_id:
+        tracker.log_input_run(name="feature_source", run_id=parent_run_id)
+
+    lineage_path = os.path.join(
+        tracker._get_run_path_by_id(child_run_id), "lineage.json"
+    )
+    assert os.path.exists(lineage_path)
+
+    with open(lineage_path, "r") as f:
+        data = json.load(f)
+        assert data["feature_source"] == parent_run_id
+
+def test_log_input_run_multiple_distinct_inputs(tracker):
+    """
+    Tests that logging multiple, different inputs results in a lineage file
+    with all inputs present.
+    """
+    with tracker.start_run(experiment_name="multi-input-test") as parent_run_1:
+        pass
+    with tracker.start_run(experiment_name="multi-input-test") as parent_run_2:
+        pass
+
+    with tracker.start_run(experiment_name="multi-input-test") as child_run_id:
+        tracker.log_input_run(name="feature_source", run_id=parent_run_1)
+        tracker.log_input_run(name="config_source", run_id=parent_run_2)
+    
+    lineage_path = os.path.join(tracker._get_run_path_by_id(child_run_id), "lineage.json")
+    assert os.path.exists(lineage_path)
+    
+    with open(lineage_path, 'r') as f:
+        data = json.load(f)
+        assert len(data) == 2
+        assert data["feature_source"] == parent_run_1
+        assert data["config_source"] == parent_run_2
+
+def test_log_input_run_overwrites_existing_input(tracker):
+    """
+    Tests that calling log_input_run a second time with the same name
+    correctly updates the value.
+    """
+    with tracker.start_run(experiment_name="overwrite-test") as old_parent_id:
+        pass
+    with tracker.start_run(experiment_name="overwrite-test") as new_parent_id:
+        pass
+
+    with tracker.start_run(experiment_name="overwrite-test") as child_run_id:
+        tracker.log_input_run(name="dataset", run_id=old_parent_id)
+        tracker.log_input_run(name="dataset", run_id=new_parent_id) # Overwrite
+    
+    lineage_path = os.path.join(tracker._get_run_path_by_id(child_run_id), "lineage.json")
+    with open(lineage_path, 'r') as f:
+        data = json.load(f)
+        assert len(data) == 1
+        assert data["dataset"] == new_parent_id
