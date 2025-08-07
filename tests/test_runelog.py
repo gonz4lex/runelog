@@ -3,6 +3,7 @@ import pytest
 import os
 import sys
 import json
+import hashlib
 import subprocess
 
 import pandas as pd
@@ -367,10 +368,72 @@ def test_log_source_code_script(tracker, monkeypatch, tmp_path):
     dummy_script_path.write_text("print('This is a test script.')")
     monkeypatch.setattr(sys, "argv", [str(dummy_script_path)])
 
-    with tracker.start_run(
-        experiment_name="code-log-test", log_code=True
-    ) as run_id:
+    with tracker.start_run(experiment_name="code-log-test", log_code=True) as run_id:
         pass
 
     run_details = tracker.get_run_details(run_id)
     assert "my_test_script.py" in run_details["artifacts"]
+
+
+def test_log_dataset_success(tracker, tmp_path):
+    """
+    Tests that dataset metadata is correctly logged to a data.json file.
+    """
+    dummy_data_path = tmp_path / "training_data.csv"
+    file_content = "feature1,feature2\n1,2\n3,4"
+    dummy_data_path.write_text(file_content)
+
+    expected_hash = hashlib.sha256(file_content.encode()).hexdigest()
+    expected_size = os.path.getsize(dummy_data_path)
+
+    with tracker.start_run(experiment_name="dataset-test") as run_id:
+        tracker.log_dataset(str(dummy_data_path), name="primary_dataset")
+
+        data_json_path = os.path.join(tracker._get_run_path(), "data_meta.json")
+        assert os.path.exists(data_json_path)
+
+        with open(data_json_path, "r") as f:
+            data = json.load(f)
+            assert data["name"] == "primary_dataset"
+            assert data["filename"] == "training_data.csv"
+            assert data["filesize_bytes"] == expected_size
+            assert data["hash_sha256"] == expected_hash
+
+
+def test_log_dataset_file_not_found(tracker):
+    """
+    Tests that log_dataset raises ArtifactNotFound for a non-existent file.
+    """
+    with tracker.start_run(experiment_name="dataset-fail-test"):
+        with pytest.raises(exceptions.ArtifactNotFound):
+            tracker.log_dataset("path/to/nonexistent/file.csv", name="bad_data")
+
+
+def test_log_dataset_hash_changes_on_modification(tracker, tmp_path):
+    """
+    Tests that the logged data hash changes if the source file is modified.
+    """
+    dummy_data_path = tmp_path / "mutable_data.csv"
+    dummy_data_path.write_text("initial content")
+
+    with tracker.start_run(experiment_name="hash-change-test") as run_id_1:
+        tracker.log_dataset(str(dummy_data_path), name="test_data")
+
+    dummy_data_path.write_text("modified content")
+
+    with tracker.start_run(experiment_name="hash-change-test") as run_id_2:
+        tracker.log_dataset(str(dummy_data_path), name="test_data")
+
+    run_1_path = tracker._get_run_path_by_id(run_id_1)
+    with open(os.path.join(run_1_path, "data_meta.json"), "r") as f:
+        data_1 = json.load(f)
+    hash_1 = data_1["hash_sha256"]
+
+    run_2_path = tracker._get_run_path_by_id(run_id_2)
+    with open(os.path.join(run_2_path, "data_meta.json"), "r") as f:
+        data_2 = json.load(f)
+    hash_2 = data_2["hash_sha256"]
+
+    assert hash_1 is not None
+    assert hash_2 is not None
+    assert hash_1 != hash_2
