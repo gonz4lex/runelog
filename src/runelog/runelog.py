@@ -345,6 +345,12 @@ class RuneLog:
         if not run_path:
             return None  # Run not found
 
+        meta = {}
+        meta_path = os.path.join(run_path, "meta.json")
+        if os.path.exists(meta_path):
+            with open(meta_path, "r") as f:
+                meta = json.load(f)
+
         params = {}
         params_path = os.path.join(run_path, "params")
         if os.path.exists(params_path):
@@ -366,7 +372,12 @@ class RuneLog:
         if os.path.exists(artifacts_path):
             artifacts = os.listdir(artifacts_path)
 
-        return {"params": params, "metrics": metrics, "artifacts": artifacts}
+        return {
+            "meta": meta,
+            "params": params,
+            "metrics": metrics,
+            "artifacts": artifacts,
+        }
 
     def delete_run(self, run_id: str) -> None:
         """Deletes a run and all of its associated artifacts.
@@ -634,27 +645,47 @@ class RuneLog:
             with open(meta_path, "w") as f:
                 json.dump(dvc_info, f, indent=4)
 
-    def log_input_run(self, name: str, run_id: str):
+    def log_input_run(self, name: str, run_id: str, artifact_name: Optional[str] = None):
         """Logs a dependency on another run, creating a lineage link.
 
-        This is used to connect runs, for example, to specify that a model
-        training run used the output from a specific feature generation run.
-        The information is saved to a `lineage.json` file.
+        This is used to create verifiable links to upstream runs and their artifacts,
+        for example, to specify that a model training run used the output from a
+        specific feature generation run. The information is saved to a `lineage.json` file.
 
         Args:
             name (str): A logical name for the input.
             run_id (str): The unique ID of the run being used as an input.
+            artifact_name (Optional[str], optional): The specific artifact from
+            the input run to link and hash. Defaults to None.
         """
         lineage_path = os.path.join(self._get_run_path(), "lineage.json")
 
         # Read lineage data if exists
-        lineage_data = {}
+        lineage_data = []
         if os.path.exists(lineage_path):
             with open(lineage_path, "r") as f:
-                lineage_data = json.load(f)
+                content = f.read()
+                if content:
+                    lineage_data = json.loads(content)
 
-        # Add or update the new input run
-        lineage_data[name] = run_id
+        parent_run_details = self.get_run_details(run_id)
+        if not parent_run_details:
+            raise exceptions.RunNotFound(run_id)
+
+        input_info = {
+            "name": name,
+            "run_id": run_id,
+            "experiment_id": parent_run_details.get("meta", {}).get("experiment_id"),
+            "artifact_name": None,
+            "artifact_hash_sha256": None,
+        }
+
+        if artifact_name:
+            input_info["artifact_name"] = artifact_name
+            artifact_path = self.get_artifact_abspath(run_id, artifact_name)
+            input_info["artifact_hash_sha256"] = self._hash_file(artifact_path)
+
+        lineage_data.append(input_info)
 
         with open(lineage_path, "w") as f:
             json.dump(lineage_data, f, indent=4)
