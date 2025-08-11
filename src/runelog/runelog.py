@@ -295,15 +295,16 @@ class RuneLog:
         os.makedirs(os.path.join(run_path, "metrics"), exist_ok=True)
         os.makedirs(os.path.join(run_path, "artifacts"), exist_ok=True)
 
-        meta = {
+        initial_meta = {
             "run_id": self._active_run_id,
             "experiment_id": self._active_experiment_id,
             "status": "RUNNING",
             "start_time": datetime.now().isoformat(),
             "end_time": None,
         }
-        with open(os.path.join(run_path, "meta.json"), "w") as f:
-            json.dump(meta, f, indent=4)
+        run_meta_path = os.path.join(run_path, "meta.json")
+        with open(run_meta_path, "w") as f:
+            json.dump(initial_meta, f, indent=4)
 
         if log_git_meta:
             self._log_git_metadata()
@@ -316,6 +317,9 @@ class RuneLog:
             yield self._active_run_id
 
         finally:
+            with open(run_meta_path, "r") as f:
+                meta = json.load(f)
+
             meta["status"] = "FINISHED"
             meta["end_time"] = datetime.now().isoformat()
 
@@ -758,6 +762,38 @@ class RuneLog:
 
                 return {**meta, **params, **metrics}
         return None
+
+    def get_run_tags(self) -> Dict:
+        """Retrieves the tags for the active run.
+
+        Returns:
+            Dict: A dictionary of the run's tags. Returns an empty dict if
+                no tags are set.
+        """
+        run_path = self._get_run_path()
+        meta_path = os.path.join(run_path, "meta.json")
+        with open(meta_path, "r") as f:
+            meta = json.load(f)
+        return meta.get("tags", {})
+
+    def set_run_tags(self, tags: Dict):
+        """Sets the entire tag dictionary for the active run.
+
+        This will overwrite any existing tags.
+
+        Args:
+            tags (Dict): The dictionary of tags to set for the run.
+        """
+        run_path = self._get_run_path()
+        meta_path = os.path.join(run_path, "meta.json")
+        
+        with open(meta_path, "r+") as f:
+            meta = json.load(f)
+            meta["tags"] = tags # Overwrite the entire tags dictionary
+            
+            f.seek(0)
+            json.dump(meta, f, indent=4)
+            f.truncate()
 
     def _resolve_experiment_id(self, name_or_id: str) -> str:
         """

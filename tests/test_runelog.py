@@ -627,3 +627,26 @@ def test_download_artifact(tracker, tmp_path):
     assert downloaded_path == str(download_dir / "test.txt")
     with open(downloaded_path, "r") as f:
         assert f.read() == dummy_content
+
+
+def test_run_tags_workflow(tracker):
+    """Tests the full workflow for getting and setting run tags."""
+    with tracker.start_run(experiment_name="tags-workflow-test") as run_id:
+        initial_tags = {"status": "running", "validated": False}
+        tracker.set_run_tags(initial_tags)
+
+        tags = tracker.get_run_tags()
+        assert tags == initial_tags
+
+        tags["status"] = "complete"  # Update a value
+        del tags["validated"]  # Delete a key
+        tags["new_tag"] = "value"  # Add a new value
+
+        tracker.set_run_tags(tags)
+
+    run_details = tracker.get_run_details(run_id)
+    final_tags = run_details["meta"]["tags"]
+
+    assert final_tags["status"] == "complete"
+    assert "validated" not in final_tags
+    assert final_tags["new_tag"] == "value"
