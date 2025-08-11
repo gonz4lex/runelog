@@ -743,7 +743,12 @@ class RuneLog:
                 meta_path = os.path.join(run_path, "meta.json")
                 if os.path.exists(meta_path):
                     with open(meta_path, "r") as f:
-                        meta = json.load(f)
+                        try:
+                            meta = json.load(f)
+                        except json.JSONDecodeError:
+                            warnings.warn(f"Warning: Corrupted meta.json for run '{run_id}'. Skipping metadata.")
+                            meta = {}
+
                 # Load params
                 params = {}
                 params_path = os.path.join(run_path, "params")
@@ -760,7 +765,7 @@ class RuneLog:
                     with open(os.path.join(metrics_path, metric_file), "r") as f:
                         metrics[key] = json.load(f)["value"]
 
-                return {**meta, **params, **metrics}
+                return {"run_id": run_id, **meta, **params, **metrics}
         return None
 
     def get_run_tags(self) -> Dict:
