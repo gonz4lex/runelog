@@ -398,7 +398,10 @@ class RuneLog:
         shutil.rmtree(run_path)
 
     def get_experiment_runs(
-        self, experiment_id: str, sort_by: Optional[str] = None, ascending: bool = True
+        self,
+        experiment_id: str,
+        sort_by: Optional[str] = "timestamp",
+        ascending: bool = True,
     ) -> List[Dict]:
         """Return a list of individual runs for the given experiment.
 
@@ -409,11 +412,7 @@ class RuneLog:
             ascending (bool, optional): Sort order. Defaults to True.
 
         Returns:
-            List[Dict]: A list of run dictionaries, each containing:
-                - run_id (str): Folder name or unique ID of the run.
-                - timestamp (str | None): ISO 8601 timestamp of the run, or None.
-                - status (str | None): Run status if available in meta.json.
-                - other metadata keys as present in meta.json.
+            List[Dict]: A list of run dictionaries.
         """
         runs = []
         exp_path = os.path.join(self._mlruns_dir, experiment_id)
@@ -421,33 +420,35 @@ class RuneLog:
         if not os.path.isdir(exp_path):
             return runs
 
-        for item in os.listdir(exp_path):
-            run_path = os.path.join(exp_path, item)
-            if os.path.isdir(run_path):
-                meta_path = os.path.join(run_path, "meta.json")
-                if os.path.exists(meta_path):
+        for run_id in os.listdir(exp_path):
+            run_path = os.path.join(exp_path, run_id)
+            meta_path = os.path.join(run_path, "meta.json")
+
+            if os.path.isfile(meta_path):
+                try:
                     with open(meta_path, "r") as f:
-                        meta = json.load(f)
-                    run_id = item
-                    timestamp = meta.get("timestamp")
-                    if timestamp is None:
-                        # Fallback: use file modification time
+                        run_data = json.load(f)
+
+                    run_data["run_id"] = run_id
+
+                    if run_data.get("timestamp") is None:
                         ts = os.path.getmtime(meta_path)
-                        timestamp = datetime.fromtimestamp(ts).isoformat()
-                    run_data = {
-                        "run_id": run_id,
-                        "timestamp": timestamp,
-                        "status": meta.get("status"),
-                        **{
-                            k: v
-                            for k, v in meta.items()
-                            if k not in {"timestamp", "status"}
-                        },
-                    }
+                        run_data["timestamp"] = datetime.fromtimestamp(ts).isoformat()
+
                     runs.append(run_data)
+                except json.JSONDecodeError:
+                    print(
+                        f"Warning: Could not parse meta.json for run_id '{run_id}'. Skipping."
+                    )
+                    continue
 
         if sort_by:
-            runs.sort(key=lambda x: x.get(sort_by, ""), reverse=not ascending)
+            fallback_sort_value = (
+                "0001-01-01T00:00:00.000000" if sort_by == "timestamp" else ""
+            )
+            runs.sort(
+                key=lambda r: r.get(sort_by, fallback_sort_value), reverse=not ascending
+            )
 
         return runs
 
@@ -645,7 +646,9 @@ class RuneLog:
             with open(meta_path, "w") as f:
                 json.dump(dvc_info, f, indent=4)
 
-    def log_input_run(self, name: str, run_id: str, artifact_name: Optional[str] = None):
+    def log_input_run(
+        self, name: str, run_id: str, artifact_name: Optional[str] = None
+    ):
         """Logs a dependency on another run, creating a lineage link.
 
         This is used to create verifiable links to upstream runs and their artifacts,
@@ -731,6 +734,12 @@ class RuneLog:
         for experiment_id in os.listdir(self._mlruns_dir):
             run_path = os.path.join(self._mlruns_dir, experiment_id, run_id)
             if os.path.isdir(run_path):
+                # Load metadata
+                meta = {}
+                meta_path = os.path.join(run_path, "meta.json")
+                if os.path.exists(meta_path):
+                    with open(meta_path, "r") as f:
+                        meta = json.load(f)
                 # Load params
                 params = {}
                 params_path = os.path.join(run_path, "params")
@@ -747,7 +756,7 @@ class RuneLog:
                     with open(os.path.join(metrics_path, metric_file), "r") as f:
                         metrics[key] = json.load(f)["value"]
 
-                return {"run_id": run_id, **params, **metrics}
+                return {**meta, **params, **metrics}
         return None
 
     def _resolve_experiment_id(self, name_or_id: str) -> str:
@@ -1087,3 +1096,26 @@ class RuneLog:
             raise exceptions.ArtifactNotFound(artifact_name, run_id)
 
         return artifact_path
+
+    def download_artifact(
+        self, run_id: str, artifact_name: str, destination_path: str = "."
+    ) -> str:
+        """Downloads an artifact from a specific run to a local path.
+
+        Args:
+            run_id (str): The ID of the run containing the artifact.
+            artifact_name (str): The filename of the artifact to download.
+            destination_path (str, optional): The local directory to save the
+                artifact in. Defaults to the current directory.
+
+        Returns:
+            str: The absolute path to the downloaded artifact.
+        """
+        source_path = self.get_artifact_abspath(run_id, artifact_name)
+
+        os.makedirs(destination_path, exist_ok=True)
+        final_destination = os.path.join(destination_path, artifact_name)
+
+        shutil.copy(source_path, final_destination)
+
+        return os.path.abspath(final_destination)
