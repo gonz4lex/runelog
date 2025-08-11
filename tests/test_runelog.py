@@ -486,7 +486,7 @@ def test_log_input_run(tracker):
 
         assert isinstance(data, list)
         assert len(data) == 1
-        
+
         assert data[0]["name"] == "feature_source"
         assert data[0]["run_id"] == parent_run_id
 
@@ -560,15 +560,17 @@ def test_log_input_run_appends_on_duplicate_name(tracker):
 
     with tracker.start_run(experiment_name="append-test") as child_run_id:
         tracker.log_input_run(name="dataset", run_id=old_parent_id)
-        tracker.log_input_run(name="dataset", run_id=new_parent_id) # Appends
-    
-    lineage_path = os.path.join(tracker._get_run_path_by_id(child_run_id), "lineage.json")
-    with open(lineage_path, 'r') as f:
+        tracker.log_input_run(name="dataset", run_id=new_parent_id)  # Appends
+
+    lineage_path = os.path.join(
+        tracker._get_run_path_by_id(child_run_id), "lineage.json"
+    )
+    with open(lineage_path, "r") as f:
         data = json.load(f)
-        
+
         assert isinstance(data, list)
         assert len(data) == 2
-        
+
         assert data[0]["run_id"] == old_parent_id
         assert data[1]["run_id"] == new_parent_id
 
@@ -605,3 +607,23 @@ def test_log_input_run_with_artifact_hashing(tracker, tmp_path):
         assert input_data["experiment_id"] == parent_exp_id
         assert input_data["artifact_name"] == "features.csv"
         assert input_data["artifact_hash_sha256"] == expected_hash
+
+
+def test_download_artifact(tracker, tmp_path):
+    """Tests that an artifact can be successfully downloaded from a run."""
+    dummy_artifact_path = tmp_path / "test.txt"
+    dummy_content = "hello world"
+    dummy_artifact_path.write_text(dummy_content)
+
+    with tracker.start_run(experiment_name="download-test") as run_id:
+        tracker.log_artifact(str(dummy_artifact_path))
+
+    download_dir = tmp_path / "downloads"
+    downloaded_path = tracker.download_artifact(
+        run_id, "test.txt", destination_path=str(download_dir)
+    )
+
+    assert os.path.exists(downloaded_path)
+    assert downloaded_path == str(download_dir / "test.txt")
+    with open(downloaded_path, "r") as f:
+        assert f.read() == dummy_content
