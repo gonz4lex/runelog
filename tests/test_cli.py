@@ -1,5 +1,9 @@
 import os
+import sys
+import subprocess
+
 import pytest
+from unittest.mock import MagicMock
 from typer.testing import CliRunner
 
 from runelog.cli import app
@@ -237,3 +241,34 @@ class TestRegistryCommands:
 
         assert result.exit_code != 0
         assert "Error: Run with ID 'nonexistent-run-id' not found" in result.stdout
+
+class TestExamplesCommands:
+    """Tests for the 'runelog examples' sub-commands."""
+
+    @pytest.mark.parametrize("command, expected_script_name", [
+        ("minimal", "minimal_tracking.py"),
+        ("train", "train_model.py"),
+        ("sweep", "sweep/sweep.py"),
+        ("make-features", "feature_store/make_features.py"),
+        ("train-with-fs", "feature_store/train_with_fs.py"),
+    ])
+    def test_run_example_commands(self, monkeypatch, command, expected_script_name):
+        """
+        Verifies that each 'examples' sub-command tries to run the correct script.
+        """
+        mock_subprocess_run = MagicMock()
+        monkeypatch.setattr(subprocess, "run", mock_subprocess_run)
+        
+        monkeypatch.setattr(os.path, "exists", lambda path: True)
+        
+        result = runner.invoke(app, ["examples", command])
+        
+        assert result.exit_code == 0
+        
+        mock_subprocess_run.assert_called_once()
+        
+        call_args = mock_subprocess_run.call_args[0][0]
+        
+        assert call_args[0] == sys.executable
+        assert call_args[1] == "-u"
+        assert call_args[2].endswith(expected_script_name)

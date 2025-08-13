@@ -1,8 +1,14 @@
 import os
+import sys
 import json
 import uuid
+import yaml
 import joblib
 import shutil
+import hashlib
+import platform
+import subprocess
+import warnings
 from contextlib import contextmanager
 from datetime import datetime
 
@@ -64,6 +70,106 @@ class RuneLog:
             if os.path.isdir(run_path):
                 return run_path
         return None
+
+    def _log_git_metadata(self):
+        """
+        Logs Git metadata to a dedicated source_control.json file in the
+        active run's directory if the root directory is Git repo
+        """
+        try:
+            commit_hash = (
+                subprocess.check_output(["git", "rev-parse", "HEAD"]).strip().decode()
+            )
+            branch_name = (
+                subprocess.check_output(["git", "rev-parse", "--abbrev-ref", "HEAD"])
+                .strip()
+                .decode()
+            )
+            is_dirty = bool(
+                subprocess.check_output(["git", "status", "--porcelain"]).strip()
+            )
+
+            git_meta = {
+                "commit_hash": commit_hash,
+                "branch": branch_name,
+                "is_dirty": is_dirty,
+            }
+
+            meta_path = os.path.join(self._get_run_path(), "source_control.json")
+            with open(meta_path, "w") as f:
+                json.dump(git_meta, f, indent=4)
+        except (subprocess.CalledProcessError, FileNotFoundError):
+            # Fail silently if not in a git repo or git is not installed
+            pass
+
+    def _log_environment(self):
+        """
+        Logs environment info to a structured JSON file and creates a
+        pip-installable requirements.txt artifact.
+        """
+        try:
+            reqs_raw = (
+                subprocess.check_output([sys.executable, "-m", "pip", "freeze"])
+                .decode()
+                .strip()
+            )
+
+            # Installable requirements.txt artifact
+            artifact_path = os.path.join(
+                self._get_run_path(), "artifacts", "requirements.txt"
+            )
+            with open(artifact_path, "w") as f:
+                f.write(reqs_raw)
+
+            # Structured data for the UI
+            packages = {
+                pkg.split("==")[0]: pkg.split("==")[1]
+                for pkg in reqs_raw.split("\n")
+                if "==" in pkg
+            }
+            env_meta = {
+                "python_version": sys.version,
+                "platform": {
+                    "system": platform.system(),
+                    "release": platform.release(),
+                },
+                "packages": packages,
+            }
+            meta_path = os.path.join(self._get_run_path(), "environment.json")
+            with open(meta_path, "w") as f:
+                json.dump(env_meta, f, indent=4)
+
+        except (subprocess.CalledProcessError, FileNotFoundError):
+            # Fails silently
+            pass
+
+    def _log_source_code(self):
+        """
+        Detects the executing script and logs it as an artifact.
+        Warns the user if run in an interactive environment like a Jupyter notebook.
+        """
+        if "ipykernel" in sys.modules:
+            import warnings
+
+            warnings.warn(
+                "Automatic code logging is not supported in interactive environments "
+                "like Jupyter notebooks. Please log your notebook manually using "
+                "tracker.log_artifact('path/to/your/notebook.ipynb')."
+            )
+            return
+
+        script_path = os.path.abspath(sys.argv[0])
+        if os.path.exists(script_path):
+            self.log_artifact(script_path)
+
+    def _hash_file(self, file_path: str) -> str:
+        """Calculates the SHA256 hash of a file."""
+        sha256_hash = hashlib.sha256()
+        with open(file_path, "rb") as f:
+            # Read and update hash in chunks to handle large files
+            for byte_block in iter(lambda: f.read(4096), b""):
+                sha256_hash.update(byte_block)
+        return sha256_hash.hexdigest()
 
     # Experiments and runs
 
@@ -129,29 +235,57 @@ class RuneLog:
 
     @contextmanager
     def start_run(
-        self, experiment_name: str = None, experiment_id: str = "0"
+        self,
+        experiment_name: str = None,
+        experiment_id: str = "0",
+        log_git_meta: bool = True,
+        log_env: bool = False,
+        log_code: bool = True,
     ) -> Generator[str, None, None]:
         """Starts a new run within an experiment as a context manager.
 
-        Upon entering the 'with' block, a new run is created and marked as
-        'RUNNING'. When the block is exited, the run is marked as 'FINISHED'.
+        This is the primary method for creating a new run. It handles run creation,
+        status updates, and can optionally log metadata about the execution
+        environment for reproducibility.
 
         Args:
-            experiment_id (str, optional): The ID of the experiment to create
-                the run in. Defaults to "0" (the default experiment).
+            experiment_name (str, optional): The name of the experiment. If it
+                doesn't exist, it will be created. This takes precedence over
+                `experiment_id`. Defaults to None.
+            experiment_id (str, optional): The ID of the experiment. If neither
+                name nor ID is provided, it defaults to "0" (the "Default"
+                experiment). Defaults to None.
+            log_git_meta (bool, optional): If True, logs Git metadata
+                (commit hash, branch, dirty status) to a `source_control.json` file.
+                Defaults to True.
+            log_env (bool, optional): If True, logs the Python environment
+                (version, platform, packages) to `environment.json` and a
+                `requirements.txt` artifact. Defaults to False.
+            log_code (bool, optional): If True, logs the source code file as an artifact.
+                Defaults to True.
 
         Yields:
             str: The unique ID of the newly created run.
+
+        Example:
+            >>> tracker = get_tracker()
+            >>> with tracker.start_run(
+            ...     experiment_name="example-experiment",
+            ...     log_env=True
+            ... ) as run_id:
+            ...     tracker.log_metric("accuracy", 0.95)
         """
         if experiment_name:
             exp_id = self.get_or_create_experiment(experiment_name)
-        # Ensure the default experiment '0' exists
         elif experiment_id:
             exp_id = experiment_id
+        else:
+            exp_id = "0"
 
-        default_experiment_path = os.path.join(self._mlruns_dir, "0")
-        if not os.path.exists(default_experiment_path):
-            self.get_or_create_experiment("default")
+        if exp_id == "0" and not os.path.exists(
+            os.path.join(self._mlruns_dir, "0", "meta.json")
+        ):
+            self.get_or_create_experiment("default-experiment")
 
         self._active_experiment_id = exp_id
         self._active_run_id = uuid.uuid4().hex[:8]  # Short unique ID
@@ -161,21 +295,38 @@ class RuneLog:
         os.makedirs(os.path.join(run_path, "metrics"), exist_ok=True)
         os.makedirs(os.path.join(run_path, "artifacts"), exist_ok=True)
 
-        meta = {
+        initial_meta = {
             "run_id": self._active_run_id,
             "experiment_id": self._active_experiment_id,
             "status": "RUNNING",
-            "timestamp": datetime.now().isoformat(),
+            "start_time": datetime.now().isoformat(),
+            "end_time": None,
         }
-        with open(os.path.join(run_path, "meta.json"), "w") as f:
-            json.dump(meta, f, indent=4)
+        run_meta_path = os.path.join(run_path, "meta.json")
+        with open(run_meta_path, "w") as f:
+            json.dump(initial_meta, f, indent=4)
+
+        if log_git_meta:
+            self._log_git_metadata()
+        if log_env:
+            self._log_environment()
+        if log_code:
+            self._log_source_code()
 
         try:
             yield self._active_run_id
+
         finally:
+            with open(run_meta_path, "r") as f:
+                meta = json.load(f)
+
             meta["status"] = "FINISHED"
+            meta["end_time"] = datetime.now().isoformat()
+
             with open(os.path.join(run_path, "meta.json"), "w") as f:
                 json.dump(meta, f, indent=4)
+
+            # Active state clean-up
             self._active_run_id = None
             self._active_experiment_id = None
 
@@ -198,6 +349,12 @@ class RuneLog:
         if not run_path:
             return None  # Run not found
 
+        meta = {}
+        meta_path = os.path.join(run_path, "meta.json")
+        if os.path.exists(meta_path):
+            with open(meta_path, "r") as f:
+                meta = json.load(f)
+
         params = {}
         params_path = os.path.join(run_path, "params")
         if os.path.exists(params_path):
@@ -219,7 +376,12 @@ class RuneLog:
         if os.path.exists(artifacts_path):
             artifacts = os.listdir(artifacts_path)
 
-        return {"params": params, "metrics": metrics, "artifacts": artifacts}
+        return {
+            "meta": meta,
+            "params": params,
+            "metrics": metrics,
+            "artifacts": artifacts,
+        }
 
     def delete_run(self, run_id: str) -> None:
         """Deletes a run and all of its associated artifacts.
@@ -240,7 +402,10 @@ class RuneLog:
         shutil.rmtree(run_path)
 
     def get_experiment_runs(
-        self, experiment_id: str, sort_by: Optional[str] = None, ascending: bool = True
+        self,
+        experiment_id: str,
+        sort_by: Optional[str] = "timestamp",
+        ascending: bool = True,
     ) -> List[Dict]:
         """Return a list of individual runs for the given experiment.
 
@@ -251,11 +416,7 @@ class RuneLog:
             ascending (bool, optional): Sort order. Defaults to True.
 
         Returns:
-            List[Dict]: A list of run dictionaries, each containing:
-                - run_id (str): Folder name or unique ID of the run.
-                - timestamp (str | None): ISO 8601 timestamp of the run, or None.
-                - status (str | None): Run status if available in meta.json.
-                - other metadata keys as present in meta.json.
+            List[Dict]: A list of run dictionaries.
         """
         runs = []
         exp_path = os.path.join(self._mlruns_dir, experiment_id)
@@ -263,33 +424,35 @@ class RuneLog:
         if not os.path.isdir(exp_path):
             return runs
 
-        for item in os.listdir(exp_path):
-            run_path = os.path.join(exp_path, item)
-            if os.path.isdir(run_path):
-                meta_path = os.path.join(run_path, "meta.json")
-                if os.path.exists(meta_path):
+        for run_id in os.listdir(exp_path):
+            run_path = os.path.join(exp_path, run_id)
+            meta_path = os.path.join(run_path, "meta.json")
+
+            if os.path.isfile(meta_path):
+                try:
                     with open(meta_path, "r") as f:
-                        meta = json.load(f)
-                    run_id = item
-                    timestamp = meta.get("timestamp")
-                    if timestamp is None:
-                        # Fallback: use file modification time
+                        run_data = json.load(f)
+
+                    run_data["run_id"] = run_id
+
+                    if run_data.get("timestamp") is None:
                         ts = os.path.getmtime(meta_path)
-                        timestamp = datetime.fromtimestamp(ts).isoformat()
-                    run_data = {
-                        "run_id": run_id,
-                        "timestamp": timestamp,
-                        "status": meta.get("status"),
-                        **{
-                            k: v
-                            for k, v in meta.items()
-                            if k not in {"timestamp", "status"}
-                        },
-                    }
+                        run_data["timestamp"] = datetime.fromtimestamp(ts).isoformat()
+
                     runs.append(run_data)
+                except json.JSONDecodeError:
+                    print(
+                        f"Warning: Could not parse meta.json for run_id '{run_id}'. Skipping."
+                    )
+                    continue
 
         if sort_by:
-            runs.sort(key=lambda x: x.get(sort_by, ""), reverse=not ascending)
+            fallback_sort_value = (
+                "0001-01-01T00:00:00.000000" if sort_by == "timestamp" else ""
+            )
+            runs.sort(
+                key=lambda r: r.get(sort_by, fallback_sort_value), reverse=not ascending
+            )
 
         return runs
 
@@ -424,6 +587,116 @@ class RuneLog:
         model_path = os.path.join(run_path, "artifacts", name)
         joblib.dump(model, model_path, compress=compress)
 
+    def log_dataset(self, data_path: str, name: str):
+        """Logs the hash and metadata of a dataset file.
+
+        This creates a verifiable "fingerprint" of the data used in a run,
+        ensuring data lineage and reproducibility.
+
+        Args:
+            data_path (str): The local path to the dataset file.
+            name (str): A descriptive name for the dataset.
+        """
+        if not os.path.exists(data_path):
+            raise exceptions.ArtifactNotFound(data_path)
+
+        data_meta = {
+            "name": name,
+            "filename": os.path.basename(data_path),
+            "filesize_bytes": os.path.getsize(data_path),
+            "hash_sha256": self._hash_file(data_path),
+        }
+
+        meta_path = os.path.join(self._get_run_path(), "data_meta.json")
+        with open(meta_path, "w") as f:
+            json.dump(data_meta, f, indent=4)
+
+    def log_dvc_input(self, data_path: str, name: str):
+        """Logs the version hash of a DVC-tracked file.
+
+        This method finds the corresponding .dvc file for the given data path,
+        parses it to find the MD5 hash of the data version, and logs this
+        information to a dedicated `dvc_inputs.json` file in the run directory.
+        This creates a verifiable link between the run and the exact version of the
+        input data.
+
+        Args:
+            data_path (str): The path to the data file tracked by DVC (e.g.,
+                "data/my_data.csv").
+            name (str): A descriptive name for this data input.
+        """
+        dvc_file_path = f"{data_path}.dvc"
+        if not os.path.exists(dvc_file_path):
+            warnings.warn(
+                f"DVC file not found at {dvc_file_path}. Skipping DVC logging."
+            )
+            return
+
+        with open(dvc_file_path, "r") as f:
+            dvc_meta = yaml.safe_load(f)
+
+        # Unique fingerprint for the data version
+        data_hash = dvc_meta.get("outs", [{}])[0].get("md5")
+
+        if data_hash:
+            dvc_info = {
+                "name": name,
+                "path": data_path,
+                "dvc_file": dvc_file_path,
+                "md5_hash": data_hash,
+            }
+
+            meta_path = os.path.join(self._get_run_path(), "dvc_inputs.json")
+            with open(meta_path, "w") as f:
+                json.dump(dvc_info, f, indent=4)
+
+    def log_input_run(
+        self, name: str, run_id: str, artifact_name: Optional[str] = None
+    ):
+        """Logs a dependency on another run, creating a lineage link.
+
+        This is used to create verifiable links to upstream runs and their artifacts,
+        for example, to specify that a model training run used the output from a
+        specific feature generation run. The information is saved to a `lineage.json` file.
+
+        Args:
+            name (str): A logical name for the input.
+            run_id (str): The unique ID of the run being used as an input.
+            artifact_name (Optional[str], optional): The specific artifact from
+            the input run to link and hash. Defaults to None.
+        """
+        lineage_path = os.path.join(self._get_run_path(), "lineage.json")
+
+        # Read lineage data if exists
+        lineage_data = []
+        if os.path.exists(lineage_path):
+            with open(lineage_path, "r") as f:
+                content = f.read()
+                if content:
+                    lineage_data = json.loads(content)
+
+        parent_run_details = self.get_run_details(run_id)
+        if not parent_run_details:
+            raise exceptions.RunNotFound(run_id)
+
+        input_info = {
+            "name": name,
+            "run_id": run_id,
+            "experiment_id": parent_run_details.get("meta", {}).get("experiment_id"),
+            "artifact_name": None,
+            "artifact_hash_sha256": None,
+        }
+
+        if artifact_name:
+            input_info["artifact_name"] = artifact_name
+            artifact_path = self.get_artifact_abspath(run_id, artifact_name)
+            input_info["artifact_hash_sha256"] = self._hash_file(artifact_path)
+
+        lineage_data.append(input_info)
+
+        with open(lineage_path, "w") as f:
+            json.dump(lineage_data, f, indent=4)
+
     # Reading
 
     def get_experiment(self, experiment_id: str) -> Optional[Dict]:
@@ -465,6 +738,17 @@ class RuneLog:
         for experiment_id in os.listdir(self._mlruns_dir):
             run_path = os.path.join(self._mlruns_dir, experiment_id, run_id)
             if os.path.isdir(run_path):
+                # Load metadata
+                meta = {}
+                meta_path = os.path.join(run_path, "meta.json")
+                if os.path.exists(meta_path):
+                    with open(meta_path, "r") as f:
+                        try:
+                            meta = json.load(f)
+                        except json.JSONDecodeError:
+                            warnings.warn(f"Warning: Corrupted meta.json for run '{run_id}'. Skipping metadata.")
+                            meta = {}
+
                 # Load params
                 params = {}
                 params_path = os.path.join(run_path, "params")
@@ -481,8 +765,40 @@ class RuneLog:
                     with open(os.path.join(metrics_path, metric_file), "r") as f:
                         metrics[key] = json.load(f)["value"]
 
-                return {"run_id": run_id, **params, **metrics}
+                return {"run_id": run_id, **meta, **params, **metrics}
         return None
+
+    def get_run_tags(self) -> Dict:
+        """Retrieves the tags for the active run.
+
+        Returns:
+            Dict: A dictionary of the run's tags. Returns an empty dict if
+                no tags are set.
+        """
+        run_path = self._get_run_path()
+        meta_path = os.path.join(run_path, "meta.json")
+        with open(meta_path, "r") as f:
+            meta = json.load(f)
+        return meta.get("tags", {})
+
+    def set_run_tags(self, tags: Dict):
+        """Sets the entire tag dictionary for the active run.
+
+        This will overwrite any existing tags.
+
+        Args:
+            tags (Dict): The dictionary of tags to set for the run.
+        """
+        run_path = self._get_run_path()
+        meta_path = os.path.join(run_path, "meta.json")
+        
+        with open(meta_path, "r+") as f:
+            meta = json.load(f)
+            meta["tags"] = tags # Overwrite the entire tags dictionary
+            
+            f.seek(0)
+            json.dump(meta, f, indent=4)
+            f.truncate()
 
     def _resolve_experiment_id(self, name_or_id: str) -> str:
         """
@@ -821,3 +1137,26 @@ class RuneLog:
             raise exceptions.ArtifactNotFound(artifact_name, run_id)
 
         return artifact_path
+
+    def download_artifact(
+        self, run_id: str, artifact_name: str, destination_path: str = "."
+    ) -> str:
+        """Downloads an artifact from a specific run to a local path.
+
+        Args:
+            run_id (str): The ID of the run containing the artifact.
+            artifact_name (str): The filename of the artifact to download.
+            destination_path (str, optional): The local directory to save the
+                artifact in. Defaults to the current directory.
+
+        Returns:
+            str: The absolute path to the downloaded artifact.
+        """
+        source_path = self.get_artifact_abspath(run_id, artifact_name)
+
+        os.makedirs(destination_path, exist_ok=True)
+        final_destination = os.path.join(destination_path, artifact_name)
+
+        shutil.copy(source_path, final_destination)
+
+        return os.path.abspath(final_destination)
