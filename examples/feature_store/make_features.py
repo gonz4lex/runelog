@@ -27,7 +27,8 @@ def main():
         df["sepal_area"] = df["sepal length (cm)"] * df["sepal width (cm)"]
 
         # Create a dedicated feature store folder
-        output_dir = os.path.join("fstore", run_id)
+        fstore_dir = "../data/fstore/"
+        output_dir = os.path.join(fstore_dir, run_id)
         os.makedirs(output_dir, exist_ok=True)
         feature_path = os.path.join(output_dir, "iris_features.parquet")
 

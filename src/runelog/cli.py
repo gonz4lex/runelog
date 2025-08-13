@@ -830,6 +830,17 @@ def run_sweep_example():
     _run_example("sweep/sweep.py")
 
 
+@examples_app.command("make-features")
+def run_make_features_example():
+    """Run the make_features.py example script."""
+    _run_example("feature_store/make_features.py")
+
+
+@examples_app.command("train-with-fs")
+def run_train_with_fs_example():
+    """Run the train_with_fs.py example script."""
+    _run_example("feature_store/train_with_fs.py")
+
 # Sweep
 
 
