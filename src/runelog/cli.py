@@ -420,27 +420,18 @@ def download_artifact(
         None,
         "-o",
         "--output-path",
-        help="Optional directory to save the artifact. Defaults to the current directory.",
+        help="Directory to save the artifact. Defaults to the current directory.",
     ),
 ):
     """Download an artifact from a specific run."""
     tracker = ctx.obj
-
     try:
-        source_path = tracker.get_artifact_path(run_id, artifact_name)
-
-        if output_path:
-            # If an output path is provided, create it if it doesn't exist
-            os.makedirs(output_path, exist_ok=True)
-            destination_path = os.path.join(output_path, artifact_name)
-        else:
-            # Default to the current working directory
-            destination_path = artifact_name
-
-        shutil.copy(source_path, destination_path)
+        final_path = tracker.download_artifact(
+            run_id, artifact_name, destination_path=output_path or "."
+        )
 
         console.print(
-            f"Artifact '[bold cyan]{artifact_name}[/bold cyan]' downloaded successfully to '[bold green]{os.path.abspath(destination_path)}[/bold green]'."
+            f"✅ Artifact '[bold cyan]{artifact_name}[/bold cyan]' downloaded successfully to '[bold green]{final_path}[/bold green]'."
         )
 
     except (exceptions.RunNotFound, exceptions.ArtifactNotFound) as e:
@@ -838,6 +829,17 @@ def run_sweep_example():
     """Run the sweep.py example script."""
     _run_example("sweep/sweep.py")
 
+
+@examples_app.command("make-features")
+def run_make_features_example():
+    """Run the make_features.py example script."""
+    _run_example("feature_store/make_features.py")
+
+
+@examples_app.command("train-with-fs")
+def run_train_with_fs_example():
+    """Run the train_with_fs.py example script."""
+    _run_example("feature_store/train_with_fs.py")
 
 # Sweep
 

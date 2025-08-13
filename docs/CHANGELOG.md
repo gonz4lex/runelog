@@ -5,14 +5,24 @@ All notable changes to **RuneLog** will be documented in this file.
 ---
 
 ## [Unreleased]
-
 ### Planned
 
-- Integration with Git metadata (hash, commit time, branch)
 - `runelog serve` command to deploy modfels as a local API
 - Lightweight feature store implementation
 - More visualizations options, i.e. ROC curves, feature importances, confusion matrices
 - Extensible plugin architecture for custom trackers or visualizations
+
+
+## [0.2.0] - 2025-08-13
+### Added
+- **Git Integration**: Automatically logs the Git commit hash, branch name, and repository "dirty" status for every run to a `source_control.json` file.
+- **Environment Snapshot**: Automatically logs the Python version, platform information, and a full list of installed packages to an `environment.json` file. It also creates a pip-installable `requirements.txt` as a run artifact.
+- **Automatic Code Logging**: Now includes an opt-in feature in `start_run` to automatically save a copy of the executing script as an artifact.
+- **Data Versioning**:
+    - **Data Hashing**: Added `tracker.log_dataset()`, a new method that calculates a SHA256 hash of a data file and saves it to a `data_meta.json` file for verifiable data lineage.
+    - **DVC Integration**: Added `tracker.log_dvc_input()`, a helper that reads the hash from a `.dvc` file to link runs with DVC-managed data.
+- **Run Lineage**: Added `tracker.log_input_run()`, which creates a `lineage.json` file to explicitly link a run to its upstream dependencies, such as a feature generation run.
+- **Documentation**: Added a new guide explaining the "Lightweight Feature Store" pattern and a guide for the new DVC integration.
 
 ## [0.1.1] - 2025-08-04
 

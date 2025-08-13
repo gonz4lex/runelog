@@ -1,5 +1,5 @@
 site_name: RuneLog
-site_description: Lightweight ML experiment tracker
+site_description: A Lightweight, File-System-Based Python Library for Reproducible Machine Learning Experimentation
 site_author: Alex Gonzalez
 repo_url: https://github.com/gonz4lex/runelog
 
@@ -18,14 +18,15 @@ nav:
   - Home: index.md
   - Quickstart: quickstart.md
   - User Guides:
-    - API Reference: reference.md
-    - Streamlit UI: interface.md
-    # - CLI: cli.md
-  - 'Contributing':
-      - 'Contribution Guide': 'CONTRIBUTING.md'
-      - 'Changelog': 'CHANGELOG.md'
-      - 'Code of Conduct': 'CODE_OF_CONDUCT.md'
-      - 'License': 'LICENSE.md'
+      - API Reference: reference.md
+      - Streamlit UI: interface.md
+      - CLI: cli.md
+      - Integration with DVC: dvc.md
+  - "Contributing":
+      - "Contribution Guide": "CONTRIBUTING.md"
+      - "Changelog": "CHANGELOG.md"
+      - "Code of Conduct": "CODE_OF_CONDUCT.md"
+      - "License": "LICENSE.md"
 
 markdown_extensions:
   - admonition
